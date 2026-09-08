@@ -7,6 +7,7 @@ import type {
   OrderStatus,
   OrderTicketsInfo,
 } from '../types/order';
+import type { AddonSeatRow } from '../types/seat';
 
 /**
  * Thin wrapper around a mysql2 connection pool for one tenant's DB.
@@ -203,6 +204,34 @@ export class DbClient {
       paymentStatus: r.order_payment_status,
       totalPrice:    Number(r.order_total_price),
       response:      r.order_response,
+    }));
+  }
+
+  // ── addon seat probes ──────────────────────────────────────────────────
+
+  async addonSeatsInCart(addonId: number, sourceEventId: number): Promise<AddonSeatRow[]> {
+    return this.loadAddonSeats(addonId, sourceEventId, 'res');
+  }
+
+  async paidAddonSeats(addonId: number, sourceEventId: number): Promise<AddonSeatRow[]> {
+    return this.loadAddonSeats(addonId, sourceEventId, 'com');
+  }
+
+  private async loadAddonSeats(addonId: number, sourceEventId: number, status: string): Promise<AddonSeatRow[]> {
+    type Row = { seat_id: number; seat_price: string | null; seat_discount_id: number | null; seat_promo_id: number | null; seat_status: string };
+    const rows = await this.query<Row>(
+      `SELECT seat_id, seat_price, seat_discount_id, seat_promo_id, seat_status
+         FROM seat
+         WHERE seat_event_id = ? AND seat_source_id = ? AND seat_status = ?
+         ORDER BY seat_id DESC`,
+      [addonId, sourceEventId, status],
+    );
+    return rows.map(r => ({
+      seatId:     r.seat_id,
+      price:      r.seat_price != null ? Number(r.seat_price) : null,
+      discountId: r.seat_discount_id,
+      promoId:    r.seat_promo_id,
+      status:     r.seat_status,
     }));
   }
 

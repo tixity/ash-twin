@@ -140,20 +140,45 @@ Tests skip it explicitly through the actor: `if (await customer.isOnCheckoutProd
 Both themes render addons through `product_card_modal.tpl` (a `.product-card[data-product-id=X]` grid; the picker lives inside a fancybox-driven modal opened on card click). `default/` also supports the legacy inline `products_listing.tpl` layout as a fallback. `checkout-products.ts` exposes a shared contract every theme implements:
 
 ```ts
+// Presence + state
 hasAddon(addonId, addonName): Promise<boolean>
 isAddonSoldOut(addonId, addonName): Promise<boolean>
 readAddonPickerAttr(addonId, categoryId, attr): Promise<string | null>
+
+// Modal + qty interaction
 openAddonModal(addonId): Promise<void>
 closeAddonModal(): Promise<void>
 getAddonQty(addonId, categoryId): Promise<number>
 incAddon(addonId, categoryId, times?): Promise<void>
+
+// Full add-to-cart via the modal (optionally with a promo code)
+addAddonViaModal(addonId, categoryId, qty, opts?: { promoCode?: string }): Promise<void>
+
+// Card-level discount contract (pre-render data-* attrs, not visual badges)
+hasAddonAutoDiscount(addonId): Promise<boolean>       // data-has-auto-discount="true"
+hasAddonPromoTag(addonId): Promise<boolean>           // data-has-non-promo-discounts="true"
+hasAddonAnyDiscount(addonId): Promise<boolean>        // data-has-discounts="true"
+readAddonAutoDiscountId(addonId): Promise<number | null>
+readAddonCardPrice(addonId): Promise<{ current: string; original: string | null }>
+readAddonCategoryData(addonId): Promise<AddonCategoryEntry[]>  // multi-cat only
 ```
 
-Selectors target `.modal-quantity-picker.addon[data-addon-id][id]` (not the generic `.quantity-picker.addon`) so they don't collide with the invisible `#product-drawer` skeleton that `products.js` also populates.
+Notes on the non-obvious bits:
 
-`openAddonModal` waits for jQuery's `click.modal` handler to be bound on `.inc` before returning. `products.js` binds the picker's increment handler inside fancybox's `afterShow` callback, which fires a fraction after Playwright's `waitFor({ state: 'visible' })` resolves — clicks would otherwise land on the button but fire no listener.
+- **Picker selectors target `.modal-quantity-picker.addon[data-addon-id][id]`** — not the generic `.quantity-picker.addon` — so they don't collide with the invisible `#product-drawer` skeleton that `products.js` also populates.
+- **`openAddonModal` waits for jQuery's `click.modal` handler** to bind on `.inc` before returning. `products.js` binds the picker's increment handler inside fancybox's `afterShow` callback, which fires a fraction after `waitFor({ state: 'visible' })` resolves — clicks would otherwise land on the button but fire no listener.
+- **`addAddonViaModal` filters `waitForResponse` on `action=_addtocart` in the POST body.** Opening the modal fires an `action=PlaceMap` POST first (to populate the discount block); an unfiltered `waitForResponse` resolves on that instead of the add-to-cart response.
+- **Card-level discount badges (`.badge.discount` / `.badge.promo`) render inside `.product-card-image`**, which only exists when the addon has an image. Factory-created addons have none, so the discount primitives read the pre-render `data-*` contract instead — same signals `products.js` reads.
+- **Capetown's card list doesn't surface a sold-out marker** anywhere — not on the card, not in the modal. `isAddonSoldOut` returns false there; sold-out tests live in `specs/vitality/default/` instead.
+- **`closeAddonModal` calls `$.fancybox.close()` via `page.evaluate`** rather than pressing Escape. When the promo input holds focus after a failed add, Escape doesn't dismiss the overlay, and later gestures (logout) get intercepted by the fancybox overlay.
 
-Capetown's card list doesn't surface any sold-out marker (the state only appears inside the modal), so `isAddonSoldOut` skips on capetown; sold-out tests should `test.skip(tenant.theme === 'capetown', ...)`.
+The checkout preview page (`checkout.ts`) exposes one addon-line primitive for tests that verify the discount persists past the addons page:
+
+```ts
+readAddonLineUnitPrice(parentEventId, addonName): Promise<string>
+```
+
+`cart_content.tpl` groups all addons under `#cart-item-{parentEventId}-product`; the primitive filters by addon name inside that block and reads `.unit-price` (with the `.seat-count` span stripped so the price parses cleanly). Note that the default theme's template omits the strikethrough `.discount-price` for addons (assigns `$disc` only in the non-addon branch) — capetown emits it correctly. Assert on the discounted `unit-price` value directly, not on strikethrough presence.
 
 ## Selector conventions
 

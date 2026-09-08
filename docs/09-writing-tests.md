@@ -137,9 +137,13 @@ expect(dbOrder?.status).toBe('ord');                            // DB: committed
 
 ## Factories — self-contained fixtures via direct DB insert
 
-Some tests need a specific fixture shape (e.g. an addon with `category_min=3, category_max=5, category_multiple_of=2`) that no tenant currently has seeded. Rather than depending on pre-existing rows, seed them inline via `factories/`.
+Some tests need a specific fixture shape (e.g. an addon with `category_min=3, category_max=5, category_multiple_of=2`, or a promo-code discount capped at 5 uses) that no tenant currently has seeded. Rather than depending on pre-existing rows, seed them inline via `factories/`.
 
-`factories/addon.ts` exposes `withAddon(db, parentEventId, opts, fn)`:
+Each factory follows the same shape: a `create*` for the raw insert, a `delete*` for cleanup, and a `with*` combinator that wraps the test body in try/finally so the row is torn down whether the test passes, fails, or throws. Callers use only the `with*` combinator.
+
+### Available factories
+
+`factories/addon.ts` — `withAddon(db, parentEventId, opts, fn)`:
 
 ```ts
 import { withAddon } from '../../../factories/addon';
@@ -151,12 +155,35 @@ await withAddon(db, event.id, {
   await customer.openEvent(event);
   // ... drive the flow, assert, feedback ...
 });
-// addonlink + category + event rows deleted unconditionally on exit
+// addonlink → seat → category → event rows deleted unconditionally on exit
 ```
 
-The factory inserts directly into `event` (with `event_addon=1, event_model='product'`), `category`, and `addonlink` — bypassing squaremaze's PHP save hooks. That's fine for pure content addons; if a future test needs plugin side-effects on addon creation, escalate that specific case to an admin HTTP fixture.
+Inserts into `event` (with `event_addon=1, event_model='product'`), `category`, `addonlink`, and 20 `seat` rows per category (so the reservation flow finds inventory).
 
-Cleanup is guaranteed via try/finally, matching the existing pattern for created users and `db.setEventField` overrides. Each test stays fully self-contained: create → drive → assert → delete.
+`factories/discount.ts` — `withDiscount(db, opts, fn)`:
+
+```ts
+import { withDiscount } from '../../../factories/discount';
+
+await withDiscount(db, {
+  eventId: addon.addonId, type: 'percent', value: 25,
+  promoCode: 'ASHTWIN-25',            // optional — omit for auto-apply
+  minTickets: 3, maxTickets: 20,      // optional — discountrestrictions plugin
+}, async (discount) => {
+  // discount: { discountId, promoId, promoCode, name, linkedEventIds, isPromo }
+});
+// promocode → discountlink → discount rows deleted on exit
+```
+
+Inserts into `discount` (with `discount_promo` populated when `promoCode` is set), one `discountlink` row per `linkedEventIds` entry (for multi-event / global discounts), and one `promocode` row (with `promo_max` / `promo_used` for the exhausted-code tests) when a code is provided.
+
+### When to write a new factory
+
+- The test needs a specific row shape that varies per-test, and hard-coding it via `db.setEventField` would leak setup into the spec.
+- Multiple specs would benefit from the same seeded shape.
+- Cleanup is non-trivial (dependent rows, plugin side-tables).
+
+The pattern: interface for `opts`, function for `create*`, function for `delete*`, `with*` combinator wrapping `create → fn → delete` in try/finally. Bypassing PHP save hooks is fine for pure-content rows; if a future test needs plugin side-effects (e.g. seat inventory init that only fires from the admin path), escalate that specific case to an admin HTTP fixture.
 
 ## Long-running tests raise their own timeout
 

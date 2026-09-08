@@ -115,4 +115,13 @@ export class CapetownCheckoutPage extends BasePage {
     await this.submitButton.click();
     await this.waitReady();
   }
+
+  // ── Cart line inspection (cart_content.tpl on the preview) ─────────────
+
+  async readAddonLineUnitPrice(parentEventId: number, addonName: string): Promise<string> {
+    const line = this.page.locator(`#cart-item-${parentEventId}-product .cart-item`).filter({
+      has: this.page.locator('.category-name', { hasText: addonName }),
+    }).first();
+    return (await line.locator('.unit-price').first().textContent())?.trim() ?? '';
+  }
 }

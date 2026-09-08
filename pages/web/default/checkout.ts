@@ -115,4 +115,18 @@ export class DefaultCheckoutPage extends BasePage {
     await this.submitButton.click();
     await this.waitReady();
   }
+
+  // ── Cart line inspection (cart_content.tpl on the preview) ─────────────
+
+  async readAddonLineUnitPrice(parentEventId: number, addonName: string): Promise<string> {
+    const line = this.page.locator(`#cart-item-${parentEventId}-product dd`).filter({
+      has: this.page.locator('.price-item-name', { hasText: addonName }),
+    }).first();
+    
+    return line.locator('.unit-price').first().evaluate(el => {
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('.seat-count').forEach(n => n.remove());
+      return clone.textContent?.trim() ?? '';
+    });
+  }
 }

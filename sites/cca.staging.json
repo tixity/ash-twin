@@ -25,6 +25,6 @@
     "port":     "${CCA_STAGING_DB_PORT}",
     "user":     "${CCA_STAGING_DB_USER}",
     "password": "${CCA_STAGING_DB_PASSWORD}",
-    "database": "${CCA_STAGING_DB_NAME}"
+    "database": "cca_staging"
   }
 }

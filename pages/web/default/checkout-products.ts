@@ -137,7 +137,8 @@ export class DefaultCheckoutProductsPage extends BasePage {
   }
 
   async closeAddonModal(): Promise<void> {
-    await this.page.keyboard.press('Escape');
+    await this.page.evaluate(() => (window as any).jQuery?.fancybox?.close?.());
+    await this.page.locator('.fancybox-overlay').waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => { /* already gone */ });
   }
 
   async getAddonQty(addonId: number, categoryId: number): Promise<number> {
@@ -154,4 +155,114 @@ export class DefaultCheckoutProductsPage extends BasePage {
     ).first();
     for (let i = 0; i < times; i++) await inc.click();
   }
+
+  /**
+   * Full add-to-cart flow via the addon modal: open card → optionally type a
+   * promo code → increment qty N times → click Add → wait for the json.php
+   * response that carries the seat back. Use this instead of `pickAddon` when
+   * driving the modal path (default+capetown cards).
+   */
+  async addAddonViaModal(
+    addonId:    number,
+    categoryId: number,
+    qty:        number,
+    opts:       { promoCode?: string } = {},
+  ): Promise<void> {
+    if (qty <= 0) return;
+    await this.openAddonModal(addonId);
+
+    if (opts.promoCode) {
+      const promoInput = this.page.locator(`input[name="promo_value_${categoryId}"]`).first();
+      await promoInput.waitFor({ state: 'visible', timeout: 5_000 });
+      await promoInput.fill(opts.promoCode);
+    }
+
+    await this.incAddon(addonId, categoryId, qty);
+
+    const addBtn = this.page.locator('#product-modal .addon_mini_add_to_cart').first();
+    for (let i = 0; i < 20 && !(await addBtn.isEnabled()); i++) {
+      await this.page.waitForTimeout(100);
+    }
+    await Promise.all([
+      this.page.waitForResponse(r =>
+        r.url().includes('json.php') &&
+        r.request().method() === 'POST' &&
+        (r.request().postData() ?? '').includes('action=_addtocart')
+      ),
+      addBtn.click(),
+    ]);
+  }
+
+  // ── Card-level discount surfaces (product_card_modal.tpl) ─────────────
+  //
+  // `.badge.discount` / `.badge.promo` are decorative — the template only
+  // renders them inside `.product-card-image`, which itself only renders when
+  // the addon has an image. Our factory-created addons have no image, so we
+  // read the pre-rendering signal instead: `data-has-auto-discount` /
+  // `data-has-non-promo-discounts` on the card + `.price-old` presence in
+  // the price block. Both are guaranteed to render regardless of image.
+
+  async hasAddonAutoDiscount(addonId: number): Promise<boolean> {
+    const card = this.page.locator(`.product-card[data-product-id="${addonId}"]`).first();
+    return (await card.getAttribute('data-has-auto-discount')) === 'true';
+  }
+
+  async hasAddonPromoTag(addonId: number): Promise<boolean> {
+    const card = this.page.locator(`.product-card[data-product-id="${addonId}"]`).first();
+    return (await card.getAttribute('data-has-non-promo-discounts')) === 'true';
+  }
+
+  async hasAddonAnyDiscount(addonId: number): Promise<boolean> {
+    const card = this.page.locator(`.product-card[data-product-id="${addonId}"]`).first();
+    return (await card.getAttribute('data-has-discounts')) === 'true';
+  }
+
+  /** Auto-applied discount ID on a single-cat addon card, or null if none. */
+  async readAddonAutoDiscountId(addonId: number): Promise<number | null> {
+    const card = this.page.locator(`.product-card[data-product-id="${addonId}"]`).first();
+    const raw  = await card.getAttribute('data-auto-discount-id');
+    if (!raw) return null;
+    return Number(raw);
+  }
+
+  async readAddonCardPrice(addonId: number): Promise<{ current: string; original: string | null }> {
+    const card = this.page.locator(`.product-card[data-product-id="${addonId}"]`).first();
+    const current  = (await card.locator('.price-new').first().textContent())?.trim() ?? '';
+    const oldNode  = card.locator('.price-old');
+    const original = (await oldNode.count()) > 0
+      ? (await oldNode.first().textContent())?.trim() ?? null
+      : null;
+    return { current, original };
+  }
+
+  /**
+   * For multi-category addons, the card carries `data-categories` — a JSON
+   * array with per-category discount state (`has_auto_discount`, `discount.id`,
+   * etc.). Returns [] on single-cat cards.
+   */
+  async readAddonCategoryData(addonId: number): Promise<AddonCategoryEntry[]> {
+    const card = this.page.locator(`.product-card[data-product-id="${addonId}"]`).first();
+    const raw  = await card.getAttribute('data-categories');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as any[];
+    // `data-categories` stringifies numeric IDs — coerce back so callers can
+    // match against DB-returned numbers with strict equality.
+    return parsed.map(c => ({
+      ...c,
+      id:               Number(c.id),
+      price:            Number(c.price),
+      auto_discount_id: c.auto_discount_id != null ? Number(c.auto_discount_id) : null,
+      discount:         c.discount ? { ...c.discount, id: Number(c.discount.id) } : undefined,
+    })) as AddonCategoryEntry[];
+  }
+}
+
+export interface AddonCategoryEntry {
+  id:                number;
+  name:              string;
+  price:             number;
+  has_discounts:     boolean;
+  has_auto_discount: boolean;
+  auto_discount_id:  number | null;
+  discount?:         { id: number; name: string; new_price: number };
 }

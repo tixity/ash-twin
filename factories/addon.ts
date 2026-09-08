@@ -43,8 +43,8 @@ export interface CreatedAddon {
 const DEFAULT_CATEGORY: Required<CreateAddonCategoryOpts> = {
   name:         'Default',
   price:        100,
-  size:         10_000,
-  free:         10_000,
+  size:         20,
+  free:         20,
   webPublished: true,
   min:          0,
   max:          0,
@@ -101,9 +101,20 @@ export async function createAddon(
       ],
     );
     categoryIds.push(catId);
+
+    // 3. Seed `seat` rows so the reservation flow finds inventory. Seat::publish
+    // fires per-unit in the admin path; we bypass that with a bulk insert
+    // matching the minimum shape the reserveNoneNumbered() query expects
+    // (event_id, category_id, status='free', seat_sid IS NULL).
+    if (merged.size > 0 && !opts.soldout) {
+      const rows = Array.from({ length: merged.size }, () => `(${addonId}, ${catId}, 'free')`).join(',');
+      await db.execute(
+        `INSERT INTO seat (seat_event_id, seat_category_id, seat_status) VALUES ${rows}`,
+      );
+    }
   }
 
-  // 3. Link the addon to the parent event.
+  // 4. Link the addon to the parent event.
   const addonLinkId = await db.insert(
     `INSERT INTO addonlink (addonlink_addon_id, addonlink_event_id, addonlink_category_id)
      VALUES (?, ?, ?)`,
@@ -115,6 +126,7 @@ export async function createAddon(
 
 export async function deleteAddon(db: DbClient, addonId: number): Promise<void> {
   await db.execute('DELETE FROM addonlink WHERE addonlink_addon_id = ?', [addonId]);
+  await db.execute('DELETE FROM seat      WHERE seat_event_id      = ?', [addonId]);
   await db.execute('DELETE FROM category  WHERE category_event_id  = ?', [addonId]);
   await db.execute('DELETE FROM event     WHERE event_id           = ?', [addonId]);
 }

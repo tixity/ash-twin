@@ -21,11 +21,11 @@ test.describe('addon discounts', () => {
   test.describe.configure({ mode: 'serial' });
 
 
-  test(39, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(39, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -56,11 +56,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(40, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(40, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -90,11 +90,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(41, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(41, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -125,11 +125,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(42, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(42, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -163,11 +163,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(43, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(43, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -198,11 +198,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(44, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(44, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -238,11 +238,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(45, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(45, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -276,11 +276,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(46, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(46, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -313,11 +313,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(47, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(47, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -349,11 +349,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(48, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(48, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -385,11 +385,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(49, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(49, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -423,11 +423,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(50, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(50, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -461,11 +461,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(51, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(51, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -499,11 +499,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(52, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(52, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -539,11 +539,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(53, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(53, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -573,11 +573,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(54, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(54, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
     
@@ -617,11 +617,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(55, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(55, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -658,11 +658,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(56, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(56, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -698,11 +698,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(57, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(57, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -738,11 +738,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(58, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(58, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -778,11 +778,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(59, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(59, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 
@@ -816,11 +816,11 @@ test.describe('addon discounts', () => {
   });
 
 
-  test(60, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(60, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(180_000);
     const creds     = requireTestCustomer(tenant);
-    const event     = await customer.resolver.event({ ...events.normal, hasHandling: registeredPaymentKeys() });
-    const parentCat = await customer.resolver.category({
+    const event     = await resolver.event({ ...events.normal, hasHandling: registeredPaymentKeys() });
+    const parentCat = await resolver.category({
       eventId: event.id, numbering: 'none', webPublished: true, soldout: false,
     });
 

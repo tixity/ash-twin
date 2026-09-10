@@ -14,11 +14,11 @@ test.describe('addon visibility gates (default only)', () => {
   test.describe.configure({ mode: 'serial' });
 
 
-  test(30, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(30, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const event = await customer.resolver.event(events.normal);
-    const parentCat = await customer.resolver.category({
+    const event = await resolver.event(events.normal);
+    const parentCat = await resolver.category({
       eventId:      event.id,
       numbering:    'none',
       webPublished: true,

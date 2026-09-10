@@ -9,9 +9,9 @@ import { withAddon } from '../../../factories/addon';
 // exact shape it needs, drives the customer flow, asserts, and cleans up
 // via withAddon's try/finally.
 
-async function proceedToAddonsPage(customer: import('../../../actors/web-customer').WebCustomer) {
-  const event = await customer.resolver.event(events.normal);
-  const parentCat = await customer.resolver.category({
+async function proceedToAddonsPage(resolver: import('../../../helpers/resolver').Resolver) {
+  const event = await resolver.event(events.normal);
+  const parentCat = await resolver.category({
     eventId:      event.id,
     numbering:    'none',
     webPublished: true,
@@ -26,10 +26,10 @@ test.describe('addon visibility gates', () => {
   test.describe.configure({ mode: 'serial' });
 
 
-  test(27, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(27, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, { webshop: false }, async (addon) => {
       await customer.login(creds);
@@ -48,10 +48,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(28, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(28, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, { status: 'unpub' }, async (addon) => {
       await customer.login(creds);
@@ -70,10 +70,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(29, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(29, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ webPublished: false }, { webPublished: false }],
@@ -99,10 +99,10 @@ test.describe('addon visibility gates', () => {
   // has no sold-out branch, so the assertion is default-only.
 
 
-  test(31, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(31, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 3 }],
@@ -125,10 +125,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(32, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(32, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ max: 5 }],
@@ -150,10 +150,10 @@ test.describe('addon visibility gates', () => {
     });
   });
 
-  test(33, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(33, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 0, max: 0, multipleOf: 0 }],
@@ -179,10 +179,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(34, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(34, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 5, max: 20 }],
@@ -208,10 +208,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(35, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(35, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 0, max: 3 }],
@@ -238,10 +238,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(36, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(36, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 0, max: 10, multipleOf: 2 }],
@@ -267,10 +267,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(37, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(37, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 3, max: 20, multipleOf: 2 }],
@@ -297,10 +297,10 @@ test.describe('addon visibility gates', () => {
   });
 
 
-  test(38, 'vitality', async ({ customer, tenant, db, feedback }) => {
+  test(38, 'vitality', async ({ customer, tenant, db, resolver, feedback }) => {
     test.setTimeout(120_000);
     const creds = requireTestCustomer(tenant);
-    const { event, parentCat } = await proceedToAddonsPage(customer);
+    const { event, parentCat } = await proceedToAddonsPage(resolver);
 
     await withAddon(db, event.id, {
       categories: [{ min: 4, max: 4 }],

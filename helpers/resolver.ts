@@ -200,6 +200,18 @@ export class Resolver {
       params.push(...p);
     }
 
+    if (c.shipmentIn && c.shipmentIn.length > 0) {
+      
+      const matchSum = c.shipmentIn
+        .map(() => 'IF(FIND_IN_SET(?, e.event_shipments) > 0, 1, 0)')
+        .join(' + ');
+      parts.push(`(
+        e.event_shipments IS NULL OR e.event_shipments = ''
+        OR (LENGTH(e.event_shipments) - LENGTH(REPLACE(e.event_shipments, ',', '')) + 1) = (${matchSum})
+      )`);
+      params.push(...c.shipmentIn);
+    }
+
     if (c.hasHandling) {
       const paymentKeys  = Array.isArray(c.hasHandling) ? c.hasHandling : [c.hasHandling];
       const shipmentKeys = registeredShipmentKeys();

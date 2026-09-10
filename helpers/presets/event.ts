@@ -1,5 +1,6 @@
 import type { EventCriteria } from '../../types/event';
 import type { AddonCriteria } from '../../types/addon';
+import { registeredShipmentKeys } from '../../shipments';
 
 /**
  * What "an eligible web-checkout addon" means — reused across every preset
@@ -28,6 +29,7 @@ export const events = {
     isPrivate:          false,
     requiresLogin:      false,
     hasNoAddons:        webCheckoutAddon,
+    shipmentIn:         registeredShipmentKeys(),
     hasCategory: {
       numbering:    'none',
       webPublished: true,

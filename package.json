@@ -5,10 +5,10 @@
   "description": "Automated regression testing platform for SquareMaze — Playwright + TypeScript.",
   "type": "module",
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:ui": "playwright test --ui",
-    "test:debug": "playwright test --debug",
+    "t": "playwright test",
+    "t:headed": "playwright test --headed",
+    "t:ui": "playwright test --ui",
+    "t:debug": "playwright test --debug",
     "report": "playwright show-report"
   },
   "devDependencies": {

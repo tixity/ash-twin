@@ -1,5 +1,6 @@
 import { test as base, type BrowserContext, type Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
+import type { Observer } from './observer';
 import { AdminLoginPage } from '../pages/admin/admin-login-page';
 
 /** Extract hostname from a URL for cookie domain assignment. */
@@ -32,32 +33,39 @@ async function suppressCookieBanner(ctx: BrowserContext, tenant: TenantConfig): 
 }
 
 /**
- * Provides logged-in browser tabs per role.
- * Each tab is a fresh Playwright context (isolated cookies/storage) with the right baseURL.
+ * Provides role-scoped browser tabs. Each tab is a fresh Playwright context
+ * (isolated cookies/storage) with the right baseURL. The admin tab is
+ * pre-logged-in; the customer tab is anonymous by default (login happens via
+ * the customer actor when a spec needs it).
  */
-export const authFixtures = base.extend<{
-  adminPage: Page;
+export const browserFixtures = base.extend<{
+  adminPage:    Page;
   customerPage: Page;
+  observer:     Observer;
 }, { tenant: TenantConfig }>({
-  adminPage: async ({ browser, tenant }, use) => {
+  adminPage: async ({ browser, tenant, observer }, use) => {
     const ctx = await browser.newContext({ baseURL: tenant.baseUrl, ignoreHTTPSErrors: true });
     await suppressCookieBanner(ctx, tenant);
     const page = await ctx.newPage();
+    observer.attach(page, ctx);
     const login = new AdminLoginPage(page);
     await login.open();
     await login.login(tenant.users.superadmin.username, tenant.users.superadmin.password);
     const err = await login.errorText();
     if (err) throw new Error(`admin login failed: ${err}`);
     await use(page);
+    await observer.captureContext(ctx);
     await ctx.close();
   },
 
-  customerPage: async ({ browser, tenant }, use) => {
+  customerPage: async ({ browser, tenant, observer }, use) => {
     const ctx = await browser.newContext({ baseURL: tenant.webUrl, ignoreHTTPSErrors: true });
     await suppressCookieBanner(ctx, tenant);
     const page = await ctx.newPage();
+    observer.attach(page, ctx);
     await injectSkipCaptchaOnCustomerPosts(page, tenant);
     await use(page);
+    await observer.captureContext(ctx);
     await ctx.close();
   },
 });

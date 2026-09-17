@@ -217,7 +217,7 @@ See [09-writing-tests.md](./09-writing-tests.md) and [04-page-objects.md](./04-p
 - **reCAPTCHA + INSTALL_VERSION.** `skipCaptcha=1` only bypasses captcha when server-side `isTestVersion()` returns true. If your deployment pipeline strips the `-dev`/`-staging` suffix from `INSTALL_VERSION`, add it back — otherwise test 11 (signup) rejects silently. See [08-squaremaze-conventions.md](./08-squaremaze-conventions.md).
 - **Config cache shadowing.** `db.overrideConfig` writes to the DB, but SquareMaze serves from `cached_config_data.dat`. `disable_config_cache=1` + `admin.clearCache()` in `beforeAll` bootstraps the tenant out of this trap.
 - **DB read-after-write lag.** Staging tenants on Azure MySQL sometimes lag ~50ms behind writes. `helpers/db-client.ts::withRetry()` guards the two register-time reads that hit this window.
-- **The `skipCaptcha=1` injection** in `fixtures/auth.ts::injectSkipCaptchaOnCustomerPosts` only applies to the tenant's own host — third-party posts (analytics, gateway callbacks) are untouched.
+- **The `skipCaptcha=1` injection** in `fixtures/browser.ts::injectSkipCaptchaOnCustomerPosts` only applies to the tenant's own host — third-party posts (analytics, gateway callbacks) are untouched.
 - **Anonymous cart flow lands on a template swap, not a redirect.** Test 18's assertion uses DOM (`customer.isOnAuthPage()`), not URL matching, because SquareMaze re-renders the auth form at `checkout.php?action=preview` for guests.
 
 ## Future fields

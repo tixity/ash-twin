@@ -7,7 +7,8 @@
 | File | Provides | Depends on |
 |---|---|---|
 | `tenant.ts` | `tenant` — loaded TenantConfig | `TENANT` and `ENV` env vars |
-| `auth.ts` | `adminPage`, `customerPage` — logged-in browser tabs | `tenant` |
+| `browser.ts` | `adminPage`, `customerPage` — role-scoped browser tabs (admin pre-logged-in, customer anonymous) | `tenant`, `observer` |
+| `observer.ts` | `observer` — cross-cutting listener for console/network/cookies; asserts at teardown | — |
 | `actors.ts` | `db`, `resolver`, `admin`, `customer` | `tenant`, `adminPage`, `customerPage` |
 | `feedback.ts` | `feedback(message)` — attach a note to the test result | — |
 | `index.ts` | Merged `test` export tests import from | All of the above |
@@ -107,7 +108,7 @@ export const feedbackFixtures = base.extend<{
 Wired into `fixtures/index.ts`:
 
 ```ts
-export const test = mergeTests(tenantFixture, authFixtures, actorsFixtures, feedbackFixtures);
+export const test = mergeTests(tenantFixture, observerFixtures, browserFixtures, actorsFixtures, feedbackFixtures);
 ```
 
 Tests then use it naturally:

@@ -5,10 +5,7 @@ import { test as base } from '../fixtures';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * A registered test in `specs/registry.json`. Registry is the single source
- * of truth for what tests exist. Playwright receives the title at runtime.
- */
+type TestFn = Parameters<typeof base>[2];
 interface RegistryEntry {
   id:    number;
   title: string;
@@ -17,17 +14,16 @@ interface RegistryEntry {
 const registryPath = path.resolve(thisDir, '..', 'specs', 'registry.json');
 const registry: RegistryEntry[] = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
 
+
 // Load-time integrity check — fail the whole test process on a duplicate id
 const byId = new Map<number, RegistryEntry>();
+
 for (const entry of registry) {
   if (byId.has(entry.id)) {
     throw new Error(`ash-twin registry: duplicate test id ${entry.id}`);
   }
   byId.set(entry.id, entry);
 }
-
-type TestFn = Parameters<typeof base>[2];
-
 
 function callable(id: number, category: string, fn: TestFn): void {
   const entry = byId.get(id);

@@ -28,7 +28,6 @@ export const events = {
     isPresale:          false,
     isPrivate:          false,
     requiresLogin:      false,
-    hasNoAddons:        webCheckoutAddon,
     shipmentIn:         registeredShipmentKeys(),
     hasCategory: {
       numbering:    'none',

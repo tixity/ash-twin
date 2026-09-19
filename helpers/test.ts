@@ -5,6 +5,7 @@ import { test as base } from '../fixtures';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 
+// TestFn use playwright's test callable signature.
 type TestFn = Parameters<typeof base>[2];
 interface RegistryEntry {
   id:    number;
@@ -36,5 +37,6 @@ function callable(id: number, category: string, fn: TestFn): void {
   base(`ID: ${entry.id} ${entry.title}`, { tag: [`@${category}`] }, fn);
 }
 
+// Extending our test function to include playwright's test callable signature.
 export const test = Object.assign(callable, base);
 export { expect } from '../fixtures';

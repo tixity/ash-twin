@@ -50,8 +50,10 @@ async function openTab(
 export const browserFixtures = base.extend<{
   adminPage:    Page;
   customerPage: Page;
-  observer:     Observer;
-}, { tenant: TenantConfig }>({
+}, {
+  tenant:   TenantConfig;
+  observer: Observer;
+}>({
 
   adminPage: async ({ browser, tenant, observer }, use) => {
     await openTab(browser, tenant, observer, {
@@ -63,7 +65,7 @@ export const browserFixtures = base.extend<{
         const err = await login.errorText();
         if (err) throw new Error(`admin login failed: ${err}`);
       },
-    }, use);
+    }, use); // passing use reference to be resolved by openTab
   },
 
   customerPage: async ({ browser, tenant, observer }, use) => {
@@ -72,6 +74,6 @@ export const browserFixtures = base.extend<{
       setup: async (_page, ctx) => {
         await preseedSkipCaptcha(ctx, tenant);
       },
-    }, use);
+    }, use); // passing use reference to be resolved by openTab
   },
 });

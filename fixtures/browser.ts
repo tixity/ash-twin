@@ -1,79 +1,52 @@
-import { test as base, type BrowserContext, type Page } from '@playwright/test';
+import { test as base, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
 import type { Observer } from './observer';
 import { AdminLoginPage } from '../pages/admin/admin-login-page';
 
-/** Extract hostname from a URL for cookie domain assignment. */
 function hostOf(url: string): string {
   return new URL(url).hostname;
 }
 
-/**
- * Suppress the cookieconsent banner on the given context by pre-setting its
- * dismissal cookie. Safe to call even for tenants without the banner —
- * unused cookies are harmless.
- */
 async function suppressCookieBanner(ctx: BrowserContext, tenant: TenantConfig): Promise<void> {
+  const expires = Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60;
   await ctx.addCookies([
-    {
-      name:   'cookieconsent_status',
-      value:  'dismiss',
-      domain: hostOf(tenant.webUrl),
-      path:   '/',
-      expires: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
-    },
-    {
-      name:   'cookieconsent_status',
-      value:  'dismiss',
-      domain: hostOf(tenant.baseUrl),
-      path:   '/',
-      expires: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60,
-    },
+    { name: 'cookieconsent_status', value: 'dismiss', domain: hostOf(tenant.webUrl),  path: '/', expires },
+    { name: 'cookieconsent_status', value: 'dismiss', domain: hostOf(tenant.baseUrl), path: '/', expires },
   ]);
 }
 
-/**
- * Provides role-scoped browser tabs. Each tab is a fresh Playwright context
- * (isolated cookies/storage) with the right baseURL. The admin tab is
- * pre-logged-in; the customer tab is anonymous by default (login happens via
- * the customer actor when a spec needs it).
- */
-export const browserFixtures = base.extend<{
-  adminPage:    Page;
-  customerPage: Page;
-  observer:     Observer;
-}, { tenant: TenantConfig }>({
-  adminPage: async ({ browser, tenant, observer }, use) => {
-    const ctx = await browser.newContext({ baseURL: tenant.baseUrl, ignoreHTTPSErrors: true });
-    await suppressCookieBanner(ctx, tenant);
-    const page = await ctx.newPage();
-    observer.attach(page, ctx);
-    const login = new AdminLoginPage(page);
-    await login.open();
-    await login.login(tenant.users.superadmin.username, tenant.users.superadmin.password);
-    const err = await login.errorText();
-    if (err) throw new Error(`admin login failed: ${err}`);
-    await use(page);
-    await observer.captureContext(ctx);
-    await ctx.close();
-  },
-
-  customerPage: async ({ browser, tenant, observer }, use) => {
-    const ctx = await browser.newContext({ baseURL: tenant.webUrl, ignoreHTTPSErrors: true });
-    await suppressCookieBanner(ctx, tenant);
-    const page = await ctx.newPage();
-    observer.attach(page, ctx);
-    await injectSkipCaptchaOnCustomerPosts(page, tenant);
-    await use(page);
-    await observer.captureContext(ctx);
-    await ctx.close();
-  },
-});
+interface OpenTabOpts {
+  baseURL: string;
+  setup?:  (page: Page, ctx: BrowserContext) => Promise<void>;
+}
 
 /**
- * Append `skipCaptcha=1` to every form-encoded POST body that goes to the
- * tenant's web host.
+ * Central tab lifecycle: context + page + banner suppression + observer wiring
+ * + cookie capture + close. Per-role fixtures only declare `baseURL` and any
+ * role-specific setup (auth, route hooks). New touchpoints (POS, dashboard,
+ * scanning) plug in as a 5-line fixture — no risk of forgetting the observer
+ * or the cookie snapshot dance.
  */
+async function openTab(
+  browser:  Browser,
+  tenant:   TenantConfig,
+  observer: Observer,
+  opts:     OpenTabOpts,
+  use:      (page: Page) => Promise<void>,
+): Promise<void> {
+  const ctx = await browser.newContext({ baseURL: opts.baseURL, ignoreHTTPSErrors: true });
+  await suppressCookieBanner(ctx, tenant);
+  const page = await ctx.newPage();
+  observer.attach(page, ctx);
+  await opts.setup?.(page, ctx);
+  try {
+    await use(page);
+  } finally {
+    await observer.captureContext(ctx);
+    await ctx.close();
+  }
+}
+
 async function injectSkipCaptchaOnCustomerPosts(page: Page, tenant: TenantConfig): Promise<void> {
   const tenantHost = hostOf(tenant.webUrl);
   await page.route('**/*', async (route, request) => {
@@ -88,8 +61,36 @@ async function injectSkipCaptchaOnCustomerPosts(page: Page, tenant: TenantConfig
     if (!contentType.startsWith('application/x-www-form-urlencoded')) return route.continue();
 
     const body = request.postData() ?? '';
-    if (/(?:^|&)skipCaptcha=/.test(body)) return route.continue();   // already present
+    if (/(?:^|&)skipCaptcha=/.test(body)) return route.continue();
     const newBody = body.length ? `${body}&skipCaptcha=1` : 'skipCaptcha=1';
     await route.continue({ postData: newBody });
   });
 }
+
+export const browserFixtures = base.extend<{
+  adminPage:    Page;
+  customerPage: Page;
+  observer:     Observer;
+}, { tenant: TenantConfig }>({
+  adminPage: async ({ browser, tenant, observer }, use) => {
+    await openTab(browser, tenant, observer, {
+      baseURL: tenant.baseUrl,
+      setup: async (page) => {
+        const login = new AdminLoginPage(page);
+        await login.open();
+        await login.login(tenant.users.superadmin.username, tenant.users.superadmin.password);
+        const err = await login.errorText();
+        if (err) throw new Error(`admin login failed: ${err}`);
+      },
+    }, use);
+  },
+
+  customerPage: async ({ browser, tenant, observer }, use) => {
+    await openTab(browser, tenant, observer, {
+      baseURL: tenant.webUrl,
+      setup: async (page) => {
+        await injectSkipCaptchaOnCustomerPosts(page, tenant);
+      },
+    }, use);
+  },
+});

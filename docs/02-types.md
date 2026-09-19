@@ -52,3 +52,21 @@ types/discount.ts
 ```
 
 Add the selector union to `types/selectors.ts`. Done.
+
+## Placement inside a file
+
+Type-only files (`types/*.ts`) speak for themselves — declarations only.
+
+For code files (fixtures, actors, page objects, helpers), local `interface` / `type` declarations always sit **at the top of the file, immediately after imports**, before any function or class. This holds even for private single-use types.
+
+```ts
+import { ... } from '...';
+import type { ... } from '...';
+
+interface OpenTabOpts { ... }
+type Kind = 'console' | 'network' | ...;
+
+// ...functions, classes, exports below
+```
+
+Rationale: a reader scanning a file learns the vocabulary first, then sees the code that uses it. Types buried mid-file force back-and-forth reading. One consistent slot means you always know where to look.

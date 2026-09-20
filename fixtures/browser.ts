@@ -22,10 +22,17 @@ async function suppressCookieBanner(ctx: BrowserContext, tenant: TenantConfig): 
   ]);
 }
 
-async function preseedSkipCaptcha(ctx: BrowserContext, tenant: TenantConfig): Promise<void> {
-  await ctx.addCookies([
-    { name: 'skipCaptcha', value: '1', domain: hostOf(tenant.webUrl), path: '/', expires: oneYearFromNow() },
-  ]);
+async function injectSkipCaptchaOnCustomerRequests(page: Page, tenant: TenantConfig): Promise<void> {
+  const tenantHost = hostOf(tenant.webUrl);
+  await page.route('**/*', async (route, request) => {
+    let url: URL;
+    try { url = new URL(request.url()); }
+    catch { return route.continue(); }
+    if (url.hostname !== tenantHost) return route.continue();
+    if (url.searchParams.has('skipCaptcha')) return route.continue();
+    url.searchParams.set('skipCaptcha', '1');
+    await route.continue({ url: url.toString() });
+  });
 }
 
 async function openTab(
@@ -71,8 +78,8 @@ export const browserFixtures = base.extend<{
   customerPage: async ({ browser, tenant, observer }, use) => {
     await openTab(browser, tenant, observer, {
       baseURL: tenant.webUrl,
-      setup: async (_page, ctx) => {
-        await preseedSkipCaptcha(ctx, tenant);
+      setup: async (page) => {
+        await injectSkipCaptchaOnCustomerRequests(page, tenant);
       },
     }, use); // passing use reference to be resolved by openTab
   },

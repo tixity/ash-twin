@@ -14,6 +14,7 @@ Granular documentation of the framework. Each file covers one concern; read in o
 8. [SquareMaze DB conventions](./08-squaremaze-conventions.md) — table/column naming rules (read before writing SQL)
 9. [Writing tests](./09-writing-tests.md) — the registry, the `test(id, fn)` wrapper, and the folder-based tag convention
 10. [Payments](./10-payments.md) — one strategy per gateway; how `payWith(paymentKey, card, opts)` works
+11. [Observer](./11-observer.md) — cross-cutting fixture enforcing global browser-side rules (security headers, banned scripts, cookie hardening, console errors)
 
 ## Reference layout
 
@@ -26,7 +27,8 @@ ash-twin/
 ├── pages/            — page objects (base + per-theme under pages/web/{theme}/)
 ├── payments/         — one strategy per gateway (cybersource_unified, ...)
 ├── fixtures/         — test dependency wiring
-├── sites/            — per-tenant JSON config ({tenant}.{env}.json)
+├── config/           — cross-cutting configuration (observer rules)
+├── sites/            — per-tenant TS config ({tenant}.{env}.ts)
 ├── types/            — domain type definitions
 ├── specs/            — the actual tests
 └── docs/             — you are here

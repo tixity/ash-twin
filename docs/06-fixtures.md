@@ -8,7 +8,7 @@
 |---|---|---|
 | `tenant.ts` | `tenant` — loaded TenantConfig | `TENANT` and `ENV` env vars |
 | `browser.ts` | `adminPage`, `customerPage` — role-scoped browser tabs (admin pre-logged-in, customer anonymous) | `tenant`, `observer` |
-| `observer.ts` | `observer` — cross-cutting listener for console/network/cookies; asserts at teardown | — |
+| `observer.ts` | `observer` — cross-cutting listener for console/network/cookies; asserts at teardown. Full details in [11-observer.md](./11-observer.md) | — |
 | `actors.ts` | `db`, `resolver`, `admin`, `customer` | `tenant`, `adminPage`, `customerPage` |
 | `feedback.ts` | `feedback(message)` — attach a note to the test result | — |
 | `index.ts` | Merged `test` export tests import from | All of the above |

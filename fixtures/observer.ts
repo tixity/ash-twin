@@ -1,4 +1,5 @@
 import { test as base, type Page, type BrowserContext, type ConsoleMessage, type Cookie } from '@playwright/test';
+import type { TenantConfig } from '../types/tenant';
 import { observerConfig, type ObserverConfig } from '../config/observer';
 
 type Kind = 'console' | 'network' | 'pageerror' | 'cookies';
@@ -33,7 +34,8 @@ export class Observer {
   private cookieSnapshots  = new Map<string, CookieSnapshot>();
   private storageSnapshots = new Map<string, StorageSnapshot>();
 
-  constructor(private config: ObserverConfig) {}
+  // primaryHost is the tenant's own host name
+  constructor(private config: ObserverConfig, private primaryHost?: string) {}
 
   attach(page: Page, context: BrowserContext): void {
     if (this.pages.has(page)) return;
@@ -46,6 +48,7 @@ export class Observer {
     page.on('response',      (res) => this.onResponse(res.url(), res.status(), res.request().resourceType(), res.headers()));
     page.on('requestfailed', (req) => {
       if (this.disabled.has('network')) return;
+      if (!this.isPrimaryHost(req.url())) return;
       const f = req.failure();
       if (f && !this.isIgnored('network', req.url())) {
         this.violations.add(`requestfailed: ${req.url()} — ${f.errorText}`);
@@ -98,7 +101,28 @@ export class Observer {
     if (this.pages.size === 0) return;
     if (!this.disabled.has('cookies')) await this.checkCookies();
     if (this.violations.size === 0) return;
-    throw new Error('observer caught violations:\n  - ' + [...this.violations].join('\n  - '));
+
+    const groups = new Map<string, string[]>();
+    for (const v of this.violations) {
+      const colon = v.indexOf(':');
+      const prefix = colon > 0 ? v.slice(0, colon) : 'other';
+      const detail = colon > 0 ? v.slice(colon + 1).trim() : v;
+      if (!groups.has(prefix)) groups.set(prefix, []);
+      groups.get(prefix)!.push(detail);
+    }
+
+    const lines = [`observer caught ${this.violations.size} violation(s):`];
+    for (const [group, items] of groups) {
+      lines.push(`  ${group} (${items.length}):`);
+      for (const item of items) lines.push(`    - ${item}`);
+    }
+    throw new Error(lines.join('\n'));
+  }
+
+  private isPrimaryHost(url: string): boolean {
+    if (!this.primaryHost) return true;
+    try { return new URL(url).hostname === this.primaryHost; }
+    catch { return false; }
   }
 
   private onConsole(msg: ConsoleMessage): void {
@@ -123,19 +147,21 @@ export class Observer {
 
   private onResponse(url: string, status: number, resourceType: string, headers: Record<string, string>): void {
     if (this.disabled.has('network')) return;
+    if (!this.isPrimaryHost(url)) return;
+    if (this.isIgnored('network', url)) return;
+
     if (this.config.network.failOnScript4xx5xx
         && (resourceType === 'script' || resourceType === 'stylesheet')
-        && status >= 400
-        && !this.isIgnored('network', url)) {
+        && status >= 400) {
       this.violations.add(`${status} on ${resourceType}: ${url}`);
     }
-    if (resourceType === 'document' && !this.isIgnored('network', url)) {
+    if (resourceType === 'document') {
       const rules = [...this.config.network.requiredHeaders, ...(this.extraWatch.network?.requiredHeaders ?? [])];
       for (const rule of rules) {
         const key = Object.keys(headers).find(h => rule.name.test(h));
         const value = key ? headers[key] : undefined;
         if (!value || !rule.value.test(value)) {
-          this.violations.add(`missing/invalid header ${rule.name} on ${url}: got ${value ?? '<none>'}`);
+          this.violations.add(`missing header ${rule.name}: on ${url} — got ${value ?? '<none>'}`);
         }
       }
     }
@@ -194,9 +220,10 @@ function mergeRules(a: Partial<ObserverConfig>, b: Partial<ObserverConfig>): Par
   };
 }
 
-export const observerFixtures = base.extend<{ observer: Observer }>({
-  observer: async ({}, use) => {
-    const obs = new Observer(observerConfig);
+export const observerFixtures = base.extend<{ observer: Observer }, { tenant: TenantConfig }>({
+  observer: async ({ tenant }, use) => {
+    const primaryHost = new URL(tenant.webUrl).hostname;
+    const obs = new Observer(observerConfig, primaryHost);
     await use(obs);
     await obs.assert();
   },

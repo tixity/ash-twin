@@ -27,6 +27,7 @@ export const observerConfig: ObserverConfig = {
     failOn: [
       /Uncaught/,
       /is not defined/,
+      /Content Security Policy/i,
     ],
     ignore: [
       /favicon/,
@@ -38,7 +39,10 @@ export const observerConfig: ObserverConfig = {
     ],
     failOnScript4xx5xx: true,
     requiredHeaders: [
+      // Item 10 (pentest): HSTS on every document response.
       { name: /^strict-transport-security$/i, value: /max-age=\d+/ },
+      // Item 5 (pentest): CSP header must be present on every document.
+      { name: /^content-security-policy$/i,   value: /./ },
     ],
     ignore: [
       /googletagmanager/,

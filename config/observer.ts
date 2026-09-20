@@ -1,3 +1,8 @@
+export interface HeaderRule {
+  name:  RegExp;
+  value: RegExp;
+}
+
 export interface ObserverConfig {
   console: {
     failOn: RegExp[];
@@ -6,6 +11,7 @@ export interface ObserverConfig {
   network: {
     banned:             RegExp[];
     failOnScript4xx5xx: boolean;
+    requiredHeaders:    HeaderRule[];
     ignore:             RegExp[];
   };
   cookies: {
@@ -31,11 +37,15 @@ export const observerConfig: ObserverConfig = {
       /jquery1\.8\.3/i,
     ],
     failOnScript4xx5xx: true,
+    requiredHeaders: [
+      { name: /^strict-transport-security$/i, value: /max-age=\d+/ },
+    ],
     ignore: [
       /googletagmanager/,
       /google-analytics/,
       /googleapis\.com/,
       /gstatic\.com/,
+      /google\.com\/recaptcha/,
       /doubleclick/,
       /facebook\.net/,
       /clarity\.ms/,

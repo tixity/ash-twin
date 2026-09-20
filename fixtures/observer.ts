@@ -43,7 +43,7 @@ export class Observer {
     page.on('console',       (msg) => this.onConsole(msg));
     page.on('pageerror',     (err) => this.onPageError(err));
     page.on('request',       (req) => this.onRequest(req.url()));
-    page.on('response',      (res) => this.onResponse(res.url(), res.status(), res.request().resourceType()));
+    page.on('response',      (res) => this.onResponse(res.url(), res.status(), res.request().resourceType(), res.headers()));
     page.on('requestfailed', (req) => {
       if (this.disabled.has('network')) return;
       const f = req.failure();
@@ -121,13 +121,24 @@ export class Observer {
     if (matches(banned, url)) this.violations.add(`banned asset requested: ${url}`);
   }
 
-  private onResponse(url: string, status: number, resourceType: string): void {
+  private onResponse(url: string, status: number, resourceType: string, headers: Record<string, string>): void {
     if (this.disabled.has('network')) return;
-    if (!this.config.network.failOnScript4xx5xx) return;
-    if (resourceType !== 'script' && resourceType !== 'stylesheet') return;
-    if (status < 400) return;
-    if (this.isIgnored('network', url)) return;
-    this.violations.add(`${status} on ${resourceType}: ${url}`);
+    if (this.config.network.failOnScript4xx5xx
+        && (resourceType === 'script' || resourceType === 'stylesheet')
+        && status >= 400
+        && !this.isIgnored('network', url)) {
+      this.violations.add(`${status} on ${resourceType}: ${url}`);
+    }
+    if (resourceType === 'document' && !this.isIgnored('network', url)) {
+      const rules = [...this.config.network.requiredHeaders, ...(this.extraWatch.network?.requiredHeaders ?? [])];
+      for (const rule of rules) {
+        const key = Object.keys(headers).find(h => rule.name.test(h));
+        const value = key ? headers[key] : undefined;
+        if (!value || !rule.value.test(value)) {
+          this.violations.add(`missing/invalid header ${rule.name} on ${url}: got ${value ?? '<none>'}`);
+        }
+      }
+    }
   }
 
   private isIgnored(kind: 'console' | 'network', text: string): boolean {
@@ -171,6 +182,7 @@ function mergeRules(a: Partial<ObserverConfig>, b: Partial<ObserverConfig>): Par
     network: {
       banned:             merge(a.network?.banned ?? [], b.network?.banned),
       failOnScript4xx5xx: b.network?.failOnScript4xx5xx ?? a.network?.failOnScript4xx5xx ?? false,
+      requiredHeaders:    [...(a.network?.requiredHeaders ?? []), ...(b.network?.requiredHeaders ?? [])],
       ignore:             merge(a.network?.ignore ?? [], b.network?.ignore),
     },
     cookies: {

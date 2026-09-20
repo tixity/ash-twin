@@ -1,4 +1,4 @@
-import type { DbClient } from './db-client';
+import type { DbClient } from './db_client';
 import type { Event, EventCriteria, EventRep } from '../types/event';
 import type { Category, CategoryCriteria } from '../types/category';
 import type { Addon, AddonCriteria } from '../types/addon';

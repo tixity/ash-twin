@@ -1,7 +1,7 @@
 import type { DefaultLandingPage } from './default/landing';
 import type { DefaultEventPage } from './default/event';
-import type { DefaultEventDatesPage } from './default/event-dates';
-import type { DefaultCheckoutProductsPage } from './default/checkout-products';
+import type { DefaultEventDatesPage } from './default/event_dates';
+import type { DefaultCheckoutProductsPage } from './default/checkout_products';
 import type { DefaultCheckoutPage } from './default/checkout';
 import type { DefaultConfirmationPage } from './default/confirmation';
 import type { DefaultAuthPage } from './default/auth';

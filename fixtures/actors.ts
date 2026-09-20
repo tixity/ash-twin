@@ -1,9 +1,9 @@
 import { test as base, type Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
-import { DbClient } from '../helpers/db-client';
+import { DbClient } from '../helpers/db_client';
 import { Resolver } from '../helpers/resolver';
 import { Admin } from '../actors/admin';
-import { WebCustomer } from '../actors/web-customer';
+import { WebCustomer } from '../actors/web_customer';
 
 export const actorsFixtures = base.extend<{
   db:       DbClient;

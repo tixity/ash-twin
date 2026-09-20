@@ -1,4 +1,4 @@
-import type { DbClient } from '../helpers/db-client';
+import type { DbClient } from '../helpers/db_client';
 
 /**
  * Direct-DB factory for addon fixtures. Creates an addon (an `event` row with

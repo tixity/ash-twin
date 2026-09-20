@@ -1,10 +1,10 @@
 import type { Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
-import type { DbClient } from '../helpers/db-client';
+import type { DbClient } from '../helpers/db_client';
 import type { Event, FindEventCriteria } from '../types/event';
-import { AdminEventsPage } from '../pages/admin/admin-events-page';
-import { AdminEventFormPage } from '../pages/admin/admin-event-form-page';
-import { AdminOrderDetailsPage } from '../pages/admin/admin-order-details';
+import { AdminEventsPage } from '../pages/admin/admin_events_page';
+import { AdminEventFormPage } from '../pages/admin/admin_event_form_page';
+import { AdminOrderDetailsPage } from '../pages/admin/admin_order_details';
 
 export class Admin {
   constructor(

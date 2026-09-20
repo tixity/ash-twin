@@ -1,7 +1,7 @@
 import { test as base, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
 import type { Observer } from './observer';
-import { AdminLoginPage } from '../pages/admin/admin-login-page';
+import { AdminLoginPage } from '../pages/admin/admin_login_page';
 
 interface OpenTabOpts {
   baseURL: string;

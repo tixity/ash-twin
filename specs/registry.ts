@@ -71,4 +71,5 @@ export const registry: RegistryEntry[] = [
   { id: 63, title: 'public docs like security.txt are served with 200' },
   { id: 64, title: 'cert-renewal path stays reachable (not 403)' },
   { id: 65, title: '403 response body is the tenant branded page, not the Apache default' },
+  { id: 66, title: 'POS registration writes a Secure + HttpOnly + SameSite=Lax use<id> cookie and no legacy test<id>' },
 ];

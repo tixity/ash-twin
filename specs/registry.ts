@@ -65,9 +65,10 @@ export const registry: RegistryEntry[] = [
   { id: 59, title: 'addon discount picked on the addons page survives to the checkout preview' },
   { id: 60, title: 'purchased addon writes the chosen discount id to seat.seat_discount_id' },
 
-  // pentest item 9
+  // pentest
   { id: 61, title: 'dotfile and metadata paths are denied with 403' },
   { id: 62, title: 'deleted files return 404' },
   { id: 63, title: 'public docs like security.txt are served with 200' },
   { id: 64, title: 'cert-renewal path stays reachable (not 403)' },
+  { id: 65, title: '403 response body is the tenant branded page, not the Apache default' },
 ];

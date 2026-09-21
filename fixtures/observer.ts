@@ -184,6 +184,7 @@ export class Observer {
     const banned         = merge(this.config.cookies.banned,         this.extraWatch.cookies?.banned);
     const mustBeSecure   = merge(this.config.cookies.mustBeSecure,   this.extraWatch.cookies?.mustBeSecure);
     const mustBeHttpOnly = merge(this.config.cookies.mustBeHttpOnly, this.extraWatch.cookies?.mustBeHttpOnly);
+    const mustBeSameSite = [...this.config.cookies.mustBeSameSite, ...(this.extraWatch.cookies?.mustBeSameSite ?? [])];
     const ignore         = merge(this.config.cookies.ignore,         this.suppressed.cookies?.ignore);
 
     for (const c of seen.values()) {
@@ -191,6 +192,11 @@ export class Observer {
       if (matches(banned, c.name))                            this.violations.add(`banned cookie: ${c.name} on ${c.domain}`);
       if (matches(mustBeSecure, c.name)   && !c.secure)       this.violations.add(`insecure cookie: ${c.name} on ${c.domain}`);
       if (matches(mustBeHttpOnly, c.name) && !c.httpOnly)     this.violations.add(`non-httpOnly cookie: ${c.name} on ${c.domain}`);
+      for (const rule of mustBeSameSite) {
+        if (rule.name.test(c.name) && c.sameSite !== rule.value) {
+          this.violations.add(`wrong sameSite on ${c.name} at ${c.domain}: got ${c.sameSite ?? '<none>'}, want ${rule.value}`);
+        }
+      }
     }
   }
 }
@@ -215,6 +221,7 @@ function mergeRules(a: Partial<ObserverConfig>, b: Partial<ObserverConfig>): Par
       banned:         merge(a.cookies?.banned ?? [],         b.cookies?.banned),
       mustBeSecure:   merge(a.cookies?.mustBeSecure ?? [],   b.cookies?.mustBeSecure),
       mustBeHttpOnly: merge(a.cookies?.mustBeHttpOnly ?? [], b.cookies?.mustBeHttpOnly),
+      mustBeSameSite: [...(a.cookies?.mustBeSameSite ?? []), ...(b.cookies?.mustBeSameSite ?? [])],
       ignore:         merge(a.cookies?.ignore ?? [],         b.cookies?.ignore),
     },
   };

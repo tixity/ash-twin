@@ -3,6 +3,11 @@ export interface HeaderRule {
   value: RegExp;
 }
 
+export interface SameSiteRule {
+  name:  RegExp;
+  value: 'Lax' | 'Strict' | 'None';
+}
+
 export interface ObserverConfig {
   console: {
     failOn: RegExp[];
@@ -18,6 +23,7 @@ export interface ObserverConfig {
     banned:         RegExp[];
     mustBeSecure:   RegExp[];
     mustBeHttpOnly: RegExp[];
+    mustBeSameSite: SameSiteRule[];
     ignore:         RegExp[];
   };
 }
@@ -55,9 +61,10 @@ export const observerConfig: ObserverConfig = {
     ],
   },
   cookies: {
-    banned:         [],
-    mustBeSecure:   [],
-    mustBeHttpOnly: [],
+    banned: [],
+    mustBeSecure:   [/^use\d+$/],
+    mustBeHttpOnly: [/^use\d+$/],
+    mustBeSameSite: [{ name: /^use\d+$/, value: 'Lax' }],
     ignore: [
       /^_ga/,
       /^_gid/,

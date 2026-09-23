@@ -71,5 +71,6 @@ export const registry: RegistryEntry[] = [
   { id: 63, title: 'public docs like security.txt are served with 200' },
   { id: 64, title: 'cert-renewal path stays reachable (not 403)' },
   { id: 65, title: '403 response body is the tenant branded page, not the Apache default' },
-  { id: 66, title: 'POS registration cookie is set with Secure + HttpOnly + SameSite=Lax' },
+  { id: 66, title: 'POS registration cookie hardened with Secure + HttpOnly + Lax and its lifetime, path, and domain are preserved' },
+  { id: 67, title: 'newsletter subscribe sets `subscribed` cookie with Secure + SameSite=Lax, unsubscribe clears it' },
 ];

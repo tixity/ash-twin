@@ -243,6 +243,18 @@ export class DbClient {
     );
     await this.execute('DELETE FROM user WHERE user_email = ?', [email]);
   }
+
+  async userMaillist(email: string): Promise<number | null> {
+    const row = await this.one<{ user_maillist: number }>(
+      'SELECT user_maillist FROM user WHERE user_email = ? LIMIT 1',
+      [email],
+    );
+    return row?.user_maillist ?? null;
+  }
+
+  async setUserMaillist(email: string, value: number): Promise<void> {
+    await this.execute('UPDATE user SET user_maillist = ? WHERE user_email = ?', [value, email]);
+  }
 }
 
 /** PHP `serialize()` for the scalar types we override — matches how `configuration.config_value` is stored. */

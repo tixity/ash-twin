@@ -34,6 +34,7 @@ export const observerConfig: ObserverConfig = {
       /Uncaught/,
       /is not defined/,
       /Content Security Policy/i, // catches CSP headers in console
+      /Plugin prefix is missing/i, // catches leaked SquareMaze plugin-hook errors
     ],
     ignore: [
       /favicon/,
@@ -62,9 +63,13 @@ export const observerConfig: ObserverConfig = {
   },
   cookies: {
     banned: [],
-    mustBeSecure:   [/^use\d+$/],
-    mustBeHttpOnly: [/^use\d+$/],
-    mustBeSameSite: [{ name: /^use\d+$/, value: 'Lax' }],
+    mustBeSecure:   [/^use\d+$/, /^sm-feedback-/, /^subscribed$/],
+    mustBeHttpOnly: [/^use\d+$/, /^sm-feedback-/],
+    mustBeSameSite: [
+      { name: /^use\d+$/,     value: 'Lax'  },
+      { name: /^sm-feedback-/, value: 'None' },
+      { name: /^subscribed$/,  value: 'Lax'  },
+    ],
     ignore: [
       /^_ga/,
       /^_gid/,

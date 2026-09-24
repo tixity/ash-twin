@@ -5,3 +5,10 @@ export function req(key: string): string {
   }
   return v;
 }
+
+export function optCreds(userKey: string, passwordKey: string): { username: string; password: string } | undefined {
+  const u = process.env[userKey];
+  const p = process.env[passwordKey];
+  if (!u || !p) return undefined;
+  return { username: u, password: p };
+}

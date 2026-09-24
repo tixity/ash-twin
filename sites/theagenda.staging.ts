@@ -12,6 +12,7 @@ export default {
   users: {
     superadmin:   { username: req('THEAGENDA_STAGING_SUPERADMIN_USER'),   password: req('THEAGENDA_STAGING_SUPERADMIN_PASSWORD') },
     testCustomer: { username: req('THEAGENDA_STAGING_TESTCUSTOMER_USER'), password: req('THEAGENDA_STAGING_TESTCUSTOMER_PASSWORD') },
+    posManager:   { username: req('THEAGENDA_STAGING_POSMANAGER_USER'),   password: req('THEAGENDA_STAGING_POSMANAGER_PASSWORD') },
   },
 
   db: {

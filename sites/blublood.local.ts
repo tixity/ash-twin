@@ -12,6 +12,7 @@ export default {
   users: {
     superadmin:   { username: req('BLUBLOOD_LOCAL_SUPERADMIN_USER'),   password: req('BLUBLOOD_LOCAL_SUPERADMIN_PASSWORD') },
     testCustomer: { username: req('BLUBLOOD_LOCAL_TESTCUSTOMER_USER'), password: req('BLUBLOOD_LOCAL_TESTCUSTOMER_PASSWORD') },
+    posManager:   { username: req('BLUBLOOD_LOCAL_POSMANAGER_USER'),   password: req('BLUBLOOD_LOCAL_POSMANAGER_PASSWORD') },
   },
 
   db: {

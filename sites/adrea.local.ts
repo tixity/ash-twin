@@ -12,6 +12,7 @@ export default {
   users: {
     superadmin:   { username: req('ADREA_LOCAL_SUPERADMIN_USER'),   password: req('ADREA_LOCAL_SUPERADMIN_PASSWORD') },
     testCustomer: { username: req('ADREA_LOCAL_TESTCUSTOMER_USER'), password: req('ADREA_LOCAL_TESTCUSTOMER_PASSWORD') },
+    posManager:   { username: req('ADREA_LOCAL_POSMANAGER_USER'),   password: req('ADREA_LOCAL_POSMANAGER_PASSWORD') },
   },
 
   db: {

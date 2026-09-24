@@ -73,4 +73,6 @@ export const registry: RegistryEntry[] = [
   { id: 65, title: '403 response body is the tenant branded page, not the Apache default' },
   { id: 66, title: 'POS registration cookie hardened with Secure + HttpOnly + Lax and its lifetime, path, and domain are preserved' },
   { id: 67, title: 'newsletter subscribe sets `subscribed` cookie with Secure + SameSite=Lax, unsubscribe clears it' },
+  { id: 68, title: 'contact API sets `sm-feedback-` cookie with Secure + HttpOnly + SameSite=None' },
+  { id: 69, title: 'searchInit.escapeHTML renders active-filter labels as safe text without double-encoding' },
 ];

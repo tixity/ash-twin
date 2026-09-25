@@ -182,6 +182,9 @@ export class Resolver {
     if (c.requiresLogin === true)  parts.push('e.event_requires_login = 1');
     if (c.requiresLogin === false) parts.push('(e.event_requires_login = 0 OR e.event_requires_login IS NULL)');
 
+    if (c.hasExternalUrl === true)  parts.push("(e.event_external_url IS NOT NULL AND e.event_external_url != '')");
+    if (c.hasExternalUrl === false) parts.push("(e.event_external_url IS NULL OR e.event_external_url = '')");
+
     if (c.hasAddons) {
       const { sql, params: p } = this.buildAddonExistsForEvent(c.hasAddons);
       parts.push(`EXISTS (${sql})`);

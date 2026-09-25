@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
 import type { DbClient } from '../helpers/db_client';
-import type { Event, FindEventCriteria } from '../types/event';
+import type { Event } from '../types/event';
 import { AdminEventsPage } from '../pages/admin/admin_events_page';
 import { AdminEventFormPage } from '../pages/admin/admin_event_form_page';
 import { AdminOrderDetailsPage } from '../pages/admin/admin_order_details';
@@ -25,26 +25,6 @@ export class Admin {
 
     await request.get(`${cacheUrl}&action=clearcache`);       // filesystem cache
     await request.get(`${cacheUrl}&action=flush_cache_db`);   // Redis / phpfastcache
-  }
-
-  async findEvent(criteria: FindEventCriteria = {}): Promise<Event | null> {
-    const where: string[] = [];
-    if (criteria.status === 'published')  where.push("e.status = 'published'");
-    if (criteria.status === 'draft')      where.push("e.status = 'draft'");
-    if (criteria.status === 'paused')     where.push("e.status = 'paused'");
-    if (criteria.isSeated === true)       where.push("e.is_seated = 1");
-    if (criteria.isSeated === false)      where.push("e.is_seated = 0");
-    if (criteria.hasCapacity === true)    where.push("(e.capacity IS NULL OR e.capacity > 0)");
-
-    const sql = `
-      SELECT e.id AS id, e.event_name AS title
-      FROM events e
-      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-      ORDER BY e.id DESC
-      LIMIT 1
-    `;
-    const row = await this.db.one<{ id: number; title: string } & import('mysql2').RowDataPacket>(sql);
-    return row ? { id: row.id, title: row.title } : null;
   }
 
   async createEvent(payload: Partial<Event> = {}): Promise<Event> {

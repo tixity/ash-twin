@@ -1,5 +1,5 @@
 import type { TenantConfig } from '../types/tenant';
-import { req, optCreds } from './_env';
+import { req } from './_env';
 
 export default {
   name:  'adrea',
@@ -12,7 +12,6 @@ export default {
   users: {
     superadmin:   { username: req('ADREA_LOCAL_SUPERADMIN_USER'),   password: req('ADREA_LOCAL_SUPERADMIN_PASSWORD') },
     testCustomer: { username: req('ADREA_LOCAL_TESTCUSTOMER_USER'), password: req('ADREA_LOCAL_TESTCUSTOMER_PASSWORD') },
-    posManager:   optCreds('ADREA_LOCAL_POSMANAGER_USER', 'ADREA_LOCAL_POSMANAGER_PASSWORD'),
   },
 
   db: {

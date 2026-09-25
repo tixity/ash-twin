@@ -16,6 +16,7 @@ export interface Event {
   rep?: EventRep;
   model?: EventModel;
   mainId?: number | null;               // populated for sub events only
+  capacity?: number | null;
   data?: Record<string, unknown>;
 }
 
@@ -37,6 +38,7 @@ export interface EventCriteria {
   isPrivate?:          boolean;   // event_is_private flag
   requiresNationalId?: boolean;   // event_nationalid flag
   requiresLogin?:      boolean;   // event_requires_login flag
+  hasExternalUrl?:     boolean;   // event_external_url is (not) set — a set URL redirects the CTA off-site and breaks web checkout tests
 
   hasCategory?: CategoryCriteria;
 

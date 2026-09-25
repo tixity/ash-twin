@@ -1,5 +1,5 @@
 import type { TenantConfig } from '../types/tenant';
-import { req, optCreds } from './_env';
+import { req } from './_env';
 
 export default {
   name:  'cca',
@@ -12,7 +12,6 @@ export default {
   users: {
     superadmin:   { username: req('CCA_STAGING_SUPERADMIN_USER'),   password: req('CCA_STAGING_SUPERADMIN_PASSWORD') },
     testCustomer: { username: req('CCA_STAGING_TESTCUSTOMER_USER'), password: req('CCA_STAGING_TESTCUSTOMER_PASSWORD') },
-    posManager:   optCreds('CCA_STAGING_POSMANAGER_USER', 'CCA_STAGING_POSMANAGER_PASSWORD'),
   },
 
   db: {

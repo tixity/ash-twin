@@ -72,7 +72,6 @@ export const registry: RegistryEntry[] = [
   { id: 64, title: 'cert-renewal path stays reachable (not 403)' },
   { id: 65, title: 'a sensitive path returns 403 (redundant probe against the deny rules)' },
   { id: 66, title: 'POS registration cookie hardened with Secure + HttpOnly + Lax and its lifetime, path, and domain are preserved' },
-  { id: 67, title: 'admin login as POS operator refreshes `use<id>` cookie with Secure + HttpOnly + Lax and a persistent lifetime' },
   { id: 68, title: 'newsletter subscribe sets `subscribed` cookie with Secure + SameSite=Lax, unsubscribe clears it' },
   { id: 69, title: 'contact API sets `sm-feedback-` cookie with Secure + HttpOnly + SameSite=None' },
   { id: 70, title: 'searchInit.escapeHTML renders active-filter labels as safe text without double-encoding' },

@@ -28,6 +28,7 @@ export const events = {
     isPresale:          false,
     isPrivate:          false,
     requiresLogin:      false,
+    hasExternalUrl:     false,
     shipmentIn:         registeredShipmentKeys(),
     hasCategory: {
       numbering:    'none',
@@ -49,6 +50,7 @@ export const events = {
     isPresale:          true,
     isPrivate:          false,
     requiresLogin:      false,
+    hasExternalUrl:     false,
     hasNoAddons:        webCheckoutAddon,
     hasCategory: {
       numbering:    'none',
@@ -70,6 +72,7 @@ export const events = {
     isPresale:          false,
     isPrivate:          true,
     requiresLogin:      false,
+    hasExternalUrl:     false,
     hasNoAddons:        webCheckoutAddon,
     hasCategory: {
       webPublished: true,
@@ -91,6 +94,7 @@ export const events = {
     isPrivate:          false,
     requiresNationalId: true,
     requiresLogin:      false,
+    hasExternalUrl:     false,
     hasNoAddons:        webCheckoutAddon,
     hasCategory: {
       webPublished: true,
@@ -112,6 +116,7 @@ export const events = {
     isPrivate:          false,
     requiresNationalId: false,
     requiresLogin:      true,
+    hasExternalUrl:     false,
     hasNoAddons:        webCheckoutAddon,
     hasCategory: {
       webPublished: true,
@@ -143,6 +148,7 @@ export const events = {
     isPresale:          false,
     isPrivate:          false,
     requiresLogin:      false,
+    hasExternalUrl:     false,
     hasNoAddons:        webCheckoutAddon,
     hasCategory: {
       numbering:    'none',
@@ -167,6 +173,7 @@ export const events = {
     isPresale:          false,
     isPrivate:          false,
     requiresLogin:      false,
+    hasExternalUrl:     false,
     hasAddons:          webCheckoutAddon,
     hasCategory: {
       webPublished: true,

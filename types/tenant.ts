@@ -21,7 +21,6 @@ export interface TenantUsers {
   scanner?:      UserCreds;
   organizer?:    UserCreds;
   testCustomer?: UserCreds;
-  posManager?:   UserCreds;
 }
 
 export interface UserCreds {

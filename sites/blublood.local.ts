@@ -1,5 +1,5 @@
 import type { TenantConfig } from '../types/tenant';
-import { req, optCreds } from './_env';
+import { req } from './_env';
 
 export default {
   name:  'blublood',
@@ -12,7 +12,6 @@ export default {
   users: {
     superadmin:   { username: req('BLUBLOOD_LOCAL_SUPERADMIN_USER'),   password: req('BLUBLOOD_LOCAL_SUPERADMIN_PASSWORD') },
     testCustomer: { username: req('BLUBLOOD_LOCAL_TESTCUSTOMER_USER'), password: req('BLUBLOOD_LOCAL_TESTCUSTOMER_PASSWORD') },
-    posManager:   optCreds('BLUBLOOD_LOCAL_POSMANAGER_USER', 'BLUBLOOD_LOCAL_POSMANAGER_PASSWORD'),
   },
 
   db: {

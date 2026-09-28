@@ -105,4 +105,17 @@ export class DefaultEventPage extends BasePage {
   async hasSeatMap(): Promise<boolean> {
     return (await this.seatMapTrigger.count()) > 0;
   }
+
+  // Side-by-side events skip the trigger entirely
+  async openSeatMap(categoryId: number): Promise<void> {
+    const trigger = this.page.locator(`#li_${categoryId} .js-openSeatMap`).first();
+    if ((await trigger.count()) === 0) return;
+    await trigger.click();
+  }
+
+  // Commits the seat map selection and proceeds to checkout.
+  async commitSeatMap(): Promise<void> {
+    await this.page.locator('#add_to_cart_btn').click();
+    await this.checkoutButton.waitFor({ state: 'visible', timeout: WAIT.MEDIUM });
+  }
 }

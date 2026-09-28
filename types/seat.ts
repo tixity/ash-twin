@@ -28,6 +28,17 @@ export interface SeatFilter {
   freeOnly?:    boolean;
 }
 
+export interface SectionSummary {
+  uuid:          string;
+  categoryId:    string | number;
+  ga:            boolean;
+  bestAvailable: boolean;
+}
+
+export interface SectionFilter {
+  categoryId?: string | number;
+}
+
 export interface SeatQuery {
   uuid?:     string;
   rowLabel?: string;
@@ -43,6 +54,7 @@ export type SelectionStrategy =
 export interface SeatMapDriver {
   waitReady():                                                                              Promise<void>;
   list(filter?: SeatFilter):                                                                Promise<SeatSummary[]>;
+  listSections(filter?: SectionFilter):                                                     Promise<SectionSummary[]>;
   find(query: SeatQuery):                                                                   Promise<SeatSummary>;
   pick(uuids: string[]):                                                                    Promise<void>;
   pickFirstN(categoryId: string | number, count: number, sectionUuid?: string):             Promise<void>;

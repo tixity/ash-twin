@@ -5,6 +5,7 @@ import type { DefaultCheckoutProductsPage } from './default/checkout_products';
 import type { DefaultCheckoutPage } from './default/checkout';
 import type { DefaultConfirmationPage } from './default/confirmation';
 import type { DefaultAuthPage } from './default/auth';
+import type { SeatMapDriver } from '../../types/seat';
 
 /**
  * Contract for the customer-facing page objects the WebCustomer actor drives.
@@ -22,4 +23,5 @@ export interface WebPages {
   checkout:         DefaultCheckoutPage;
   confirmation:     DefaultConfirmationPage;
   auth:             DefaultAuthPage;
+  seatmap:          SeatMapDriver;
 }

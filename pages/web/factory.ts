@@ -15,6 +15,7 @@ import { CapetownCheckoutProductsPage } from './capetown/checkout_products';
 import { CapetownCheckoutPage } from './capetown/checkout';
 import { CapetownConfirmationPage } from './capetown/confirmation';
 import { CapetownAuthPage } from './capetown/auth';
+import { seatMapFor } from '../../drivers/seatmap';
 
 
 // Return the WebPages bundle for the tenant's theme.
@@ -35,6 +36,7 @@ function defaultPages(page: Page): WebPages {
     checkout:         new DefaultCheckoutPage(page),
     confirmation:     new DefaultConfirmationPage(page),
     auth:             new DefaultAuthPage(page),
+    seatmap:          seatMapFor(page),
   };
 }
 
@@ -47,6 +49,7 @@ function capetownPages(page: Page, _tenant: TenantConfig): WebPages {
     checkout:         new CapetownCheckoutPage(page),
     confirmation:     new CapetownConfirmationPage(page),
     auth:             new CapetownAuthPage(page),
+    seatmap:          seatMapFor(page),
   };
 }
 

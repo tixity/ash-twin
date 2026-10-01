@@ -23,8 +23,16 @@ function merge(a: RegExp[], b: RegExp[] | undefined): RegExp[] {
   return b?.length ? [...a, ...b] : a;
 }
 
+interface Violation {
+  kind:    string;
+  summary: string;
+  url?:    string;
+  raw?:    string;
+}
+
 export class Observer {
-  private violations = new Set<string>();
+  private violations: Violation[] = [];
+  private seen = new Set<string>();
   private disabled   = new Set<Kind>();
   private extraWatch: Partial<ObserverConfig> = {};
   private suppressed: Partial<ObserverConfig> = {};
@@ -42,8 +50,8 @@ export class Observer {
     this.pages.add(page);
     this.contexts.add(context);
 
-    page.on('console',       (msg) => this.onConsole(msg));
-    page.on('pageerror',     (err) => this.onPageError(err));
+    page.on('console',       (msg) => this.onConsole(msg, page));
+    page.on('pageerror',     (err) => this.onPageError(err, page));
     page.on('request',       (req) => this.onRequest(req.url()));
     page.on('response',      (res) => this.onResponse(res.url(), res.status(), res.request().resourceType(), res.headers()));
     page.on('requestfailed', (req) => {
@@ -51,7 +59,11 @@ export class Observer {
       if (!this.isPrimaryHost(req.url())) return;
       const f = req.failure();
       if (f && !this.isIgnored('network', req.url())) {
-        this.violations.add(`requestfailed: ${req.url()} — ${f.errorText}`);
+        this.add({
+          kind:    'network-failed',
+          summary: `Network request failed: ${f.errorText}`,
+          url:     req.url(),
+        });
       }
     });
   }
@@ -100,23 +112,25 @@ export class Observer {
   async assert(): Promise<void> {
     if (this.pages.size === 0) return;
     if (!this.disabled.has('cookies')) await this.checkCookies();
-    if (this.violations.size === 0) return;
+    if (this.violations.length === 0) return;
 
-    const groups = new Map<string, string[]>();
-    for (const v of this.violations) {
-      const colon = v.indexOf(':');
-      const prefix = colon > 0 ? v.slice(0, colon) : 'other';
-      const detail = colon > 0 ? v.slice(colon + 1).trim() : v;
-      if (!groups.has(prefix)) groups.set(prefix, []);
-      groups.get(prefix)!.push(detail);
-    }
-
-    const lines = [`observer caught ${this.violations.size} violation(s):`];
-    for (const [group, items] of groups) {
-      lines.push(`  ${group} (${items.length}):`);
-      for (const item of items) lines.push(`    - ${item}`);
-    }
+    const lines: string[] = [];
+    lines.push(`Observer caught ${this.violations.length} issue(s) during this test:`);
+    lines.push('');
+    this.violations.forEach((v, i) => {
+      lines.push(`  ${i + 1}. ${v.summary}`);
+      if (v.url) lines.push(`     where:  ${v.url}`);
+      if (v.raw) lines.push(`     raw:    ${truncate(v.raw, 240)}`);
+      lines.push('');
+    });
     throw new Error(lines.join('\n'));
+  }
+
+  private add(v: Violation): void {
+    const key = `${v.kind}|${v.summary}|${v.url ?? ''}`;
+    if (this.seen.has(key)) return;
+    this.seen.add(key);
+    this.violations.push(v);
   }
 
   private isPrimaryHost(url: string): boolean {
@@ -125,24 +139,41 @@ export class Observer {
     catch { return false; }
   }
 
-  private onConsole(msg: ConsoleMessage): void {
+  private onConsole(msg: ConsoleMessage, page: Page): void {
     if (this.disabled.has('console')) return;
     if (msg.type() !== 'error' && msg.type() !== 'warning') return;
     const text = msg.text();
     if (this.isIgnored('console', text)) return;
     const failOn = merge(this.config.console.failOn, this.extraWatch.console?.failOn);
-    if (matches(failOn, text)) this.violations.add(`console.${msg.type()}: ${text}`);
+    if (!matches(failOn, text)) return;
+    this.add({
+      kind:    'console',
+      summary: summarizeConsole(text),
+      url:     page.url(),
+      raw:     text,
+    });
   }
 
-  private onPageError(err: Error): void {
+  private onPageError(err: Error, page: Page): void {
     if (this.disabled.has('pageerror')) return;
-    this.violations.add(`pageerror: ${err.message}`);
+    this.add({
+      kind:    'pageerror',
+      summary: `Uncaught JavaScript error: ${err.message.split('\n')[0]}`,
+      url:     page.url(),
+      raw:     err.message,
+    });
   }
 
   private onRequest(url: string): void {
     if (this.disabled.has('network')) return;
     const banned = merge(this.config.network.banned, this.extraWatch.network?.banned);
-    if (matches(banned, url)) this.violations.add(`banned asset requested: ${url}`);
+    if (matches(banned, url)) {
+      this.add({
+        kind:    'banned-asset',
+        summary: `Banned asset was requested (should have been removed from the codebase)`,
+        url,
+      });
+    }
   }
 
   private onResponse(url: string, status: number, resourceType: string, headers: Record<string, string>): void {
@@ -153,7 +184,11 @@ export class Observer {
     if (this.config.network.failOnScript4xx5xx
         && (resourceType === 'script' || resourceType === 'stylesheet')
         && status >= 400) {
-      this.violations.add(`${status} on ${resourceType}: ${url}`);
+      this.add({
+        kind:    'asset-error',
+        summary: `A ${resourceType} returned HTTP ${status} — likely a stale asset reference`,
+        url,
+      });
     }
     if (resourceType === 'document') {
       const rules = [...this.config.network.requiredHeaders, ...(this.extraWatch.network?.requiredHeaders ?? [])];
@@ -161,7 +196,11 @@ export class Observer {
         const key = Object.keys(headers).find(h => rule.name.test(h));
         const value = key ? headers[key] : undefined;
         if (!value || !rule.value.test(value)) {
-          this.violations.add(`missing header ${rule.name}: on ${url} — got ${value ?? '<none>'}`);
+          this.add({
+            kind:    'missing-header',
+            summary: `Response is missing the ${describeHeader(rule.name)} header (got ${value ?? '<none>'})`,
+            url,
+          });
         }
       }
     }
@@ -188,13 +227,31 @@ export class Observer {
     const ignore         = merge(this.config.cookies.ignore,         this.suppressed.cookies?.ignore);
 
     for (const c of seen.values()) {
-      if (matches(ignore, c.name))                            continue;
-      if (matches(banned, c.name))                            this.violations.add(`banned cookie: ${c.name} on ${c.domain}`);
-      if (matches(mustBeSecure, c.name)   && !c.secure)       this.violations.add(`insecure cookie: ${c.name} on ${c.domain}`);
-      if (matches(mustBeHttpOnly, c.name) && !c.httpOnly)     this.violations.add(`non-httpOnly cookie: ${c.name} on ${c.domain}`);
+      if (matches(ignore, c.name)) continue;
+      if (matches(banned, c.name)) {
+        this.add({
+          kind:    'banned-cookie',
+          summary: `Banned cookie "${c.name}" is still set on ${c.domain}`,
+        });
+      }
+      if (matches(mustBeSecure, c.name) && !c.secure) {
+        this.add({
+          kind:    'insecure-cookie',
+          summary: `Cookie "${c.name}" on ${c.domain} is missing the Secure flag`,
+        });
+      }
+      if (matches(mustBeHttpOnly, c.name) && !c.httpOnly) {
+        this.add({
+          kind:    'readable-cookie',
+          summary: `Cookie "${c.name}" on ${c.domain} is missing the HttpOnly flag (JavaScript can read it)`,
+        });
+      }
       for (const rule of mustBeSameSite) {
         if (rule.name.test(c.name) && c.sameSite !== rule.value) {
-          this.violations.add(`wrong sameSite on ${c.name} at ${c.domain}: got ${c.sameSite ?? '<none>'}, want ${rule.value}`);
+          this.add({
+            kind:    'wrong-samesite',
+            summary: `Cookie "${c.name}" on ${c.domain} has SameSite=${c.sameSite ?? '<none>'}, expected ${rule.value}`,
+          });
         }
       }
     }
@@ -203,6 +260,41 @@ export class Observer {
 
 async function safeCookies(ctx: BrowserContext): Promise<Cookie[]> {
   try { return await ctx.cookies(); } catch { return []; }
+}
+
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1) + '…';
+}
+
+function describeHeader(pattern: RegExp): string {
+  const src = pattern.source.toLowerCase();
+  if (src.includes('content-security-policy')) return 'Content-Security-Policy';
+  if (src.includes('strict-transport-security')) return 'Strict-Transport-Security (HSTS)';
+  if (src.includes('x-frame-options')) return 'X-Frame-Options';
+  return pattern.source.replace(/[\^$]/g, '');
+}
+
+function summarizeConsole(text: string): string {
+  if (/content security policy/i.test(text) && /style-src/i.test(text)) {
+    return `Content Security Policy blocked an inline style — some code wrote element.style.X or injected <style> without a nonce`;
+  }
+  if (/content security policy/i.test(text) && /script-src/i.test(text)) {
+    return `Content Security Policy blocked an inline script — some code injected <script> or used eval without a nonce`;
+  }
+  if (/content security policy/i.test(text)) {
+    return `Content Security Policy blocked something on this page — see raw for the directive and resource`;
+  }
+  if (/is not defined/i.test(text)) {
+    const m = /(\w+) is not defined/i.exec(text);
+    return `JavaScript variable "${m?.[1] ?? '<unknown>'}" is not defined — a script probably failed to load`;
+  }
+  if (/plugin prefix is missing/i.test(text)) {
+    return `SquareMaze "Plugin prefix is missing" error leaked to the UI — a Plugin::call() invocation has a bad event name`;
+  }
+  if (/^uncaught\b/i.test(text)) {
+    return `Uncaught JavaScript error on this page — see raw for details`;
+  }
+  return text.slice(0, 160);
 }
 
 function mergeRules(a: Partial<ObserverConfig>, b: Partial<ObserverConfig>): Partial<ObserverConfig> {
@@ -228,10 +320,16 @@ function mergeRules(a: Partial<ObserverConfig>, b: Partial<ObserverConfig>): Par
 }
 
 export const observerFixtures = base.extend<{ observer: Observer }, { tenant: TenantConfig }>({
-  observer: async ({ tenant }, use) => {
+  observer: async ({ tenant }, use, testInfo) => {
     const primaryHost = new URL(tenant.webUrl).hostname;
     const obs = new Observer(observerConfig, primaryHost);
     await use(obs);
-    await obs.assert();
+    try {
+      await obs.assert();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      testInfo.annotations.push({ type: 'feedback', description: `✗ observer:\n  ${msg.replace(/\n/g, '\n  ')}` });
+      throw err;
+    }
   },
 });

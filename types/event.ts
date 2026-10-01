@@ -1,4 +1,4 @@
-import type { CategoryCriteria } from './category';
+import type { CategoryCriteria, CategoryFactoryInput } from './category';
 import type { AddonCriteria } from './addon';
 import type { PaymentKey } from './handling';
 
@@ -46,6 +46,14 @@ export interface EventCriteria {
   hasNoAddons?: AddonCriteria;   // event MUST NOT have any addon matching this shape
 
   hasHandling?: PaymentKey | PaymentKey[];
-  
+
   shipmentIn?: string[];
+}
+
+export interface EventFactoryInput extends EventCriteria {
+  categories?: CategoryFactoryInput[];
+  name?: string;
+  date?: string;   // 'YYYY-MM-DD'
+  time?: string;   // 'HH:MM:SS'
+  type?: string;
 }

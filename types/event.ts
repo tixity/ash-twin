@@ -56,4 +56,11 @@ export interface EventFactoryInput extends EventCriteria {
   date?: string;   // 'YYYY-MM-DD'
   time?: string;   // 'HH:MM:SS'
   type?: string;
+  subs?: SubFactoryInput[];
+}
+
+export interface SubFactoryInput {
+  date?: string;   // 'YYYY-MM-DD'; defaults to today + 30 + index days
+  time?: string;   // 'HH:MM:SS'; defaults to EventFactoryInput.time or 20:00:00
+  name?: string;   // defaults to ash-twin-event-sub-<nonce>
 }

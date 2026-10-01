@@ -1,13 +1,12 @@
 import type { DbClient } from './db_client';
-import type { Event, EventCriteria, EventRep } from '../types/event';
+import type { Event, EventCriteria, EventFactoryInput, EventRep } from '../types/event';
 import type { Category, CategoryCriteria } from '../types/category';
 import type { Addon, AddonCriteria } from '../types/addon';
 import type { EventSelector, CategorySelector, AddonSelector } from '../types/selectors';
 import { registeredShipmentKeys } from '../shipments';
+import { EventFactory } from './factories';
 
-// ── DB ↔ domain rep value mapping ──────────────────────────────────────────
-// SquareMaze stores 'main,sub' for standalone (unique) events. We alias to
-// 'unique' in the domain type for clarity.
+
 const REP_DB_UNIQUE = 'main,sub';
 
 function repToDb(rep: EventRep): string {
@@ -21,11 +20,15 @@ function repFromDb(v: string | null | undefined): EventRep | undefined {
 }
 
 export class Resolver {
-  constructor(private db: DbClient) {}
+  private factory: EventFactory;
+
+  constructor(private db: DbClient) {
+    this.factory = new EventFactory(db);
+  }
 
   // ── Events ──────────────────────────────────────────────────────────────
 
-  async event(selector: EventSelector): Promise<Event> {
+  async event(selector: EventSelector | EventFactoryInput): Promise<Event> {
     let row: Event | null;
 
     if (typeof selector === 'number') {
@@ -37,6 +40,10 @@ export class Resolver {
     } else if (typeof selector === 'object') {
       const { where, params, orderBy } = this.buildEventCriteriaWhere(selector as EventCriteria);
       row = await this.queryEvent(where, params, orderBy);
+      if (!row) {
+        const { event } = await this.factory.build(selector as EventFactoryInput);
+        return event;
+      }
     } else {
       throw new Error(`Unrecognized event selector: ${JSON.stringify(selector)}`);
     }

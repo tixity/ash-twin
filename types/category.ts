@@ -51,3 +51,9 @@ export interface CategoryCriteria {
   b2bPublished?: boolean;
 
 }
+
+export interface CategoryFactoryInput extends CategoryCriteria {
+  size?:  number;   // GA only; factory throws when numbering !== 'none'
+  price?: number;
+  name?:  string;
+}

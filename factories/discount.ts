@@ -27,6 +27,8 @@ export interface CreateDiscountOpts {
   multipleOf?:      number;
   country?:         string | null;
   linkedEventIds?:  number[];
+  begin?:           string | null;
+  end?:             string | null;
 }
 
 export interface CreatedDiscount {
@@ -66,8 +68,8 @@ export async function createDiscount(
        (discount_event_id, discount_category_id, discount_name, discount_type,
         discount_value, discount_promo, discount_active, discount_country,
         discount_promo_type, discount_min_tickets, discount_max_tickets,
-        discount_multiple_of)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        discount_multiple_of, discount_begin, discount_end)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       opts.eventId    ?? null,
       opts.categoryId ?? null,
@@ -81,6 +83,8 @@ export async function createDiscount(
       minTickets,
       maxTickets,
       multipleOf,
+      opts.begin ?? null,
+      opts.end   ?? null,
     ],
   );
 

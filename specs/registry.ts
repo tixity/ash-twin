@@ -75,4 +75,7 @@ export const registry: RegistryEntry[] = [
   { id: 68, title: 'newsletter subscribe sets `subscribed` cookie with Secure + SameSite=Lax, unsubscribe clears it' },
   { id: 69, title: 'contact API sets `sm-feedback-` cookie with Secure + HttpOnly + SameSite=None' },
   { id: 70, title: 'searchInit.escapeHTML renders active-filter labels as safe text without double-encoding' },
+
+  // seatmap
+  { id: 71, title: 'an authenticated user completes a seated purchase via the seatmap iframe' },
 ];

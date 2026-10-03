@@ -106,16 +106,25 @@ export class DefaultEventPage extends BasePage {
     return (await this.seatMapTrigger.count()) > 0;
   }
 
-  // Side-by-side events skip the trigger entirely
   async openSeatMap(categoryId: number): Promise<void> {
     const trigger = this.page.locator(`#li_${categoryId} .js-openSeatMap`).first();
     if ((await trigger.count()) === 0) return;
     await trigger.click();
   }
 
-  // Commits the seat map selection and proceeds to checkout.
-  async commitSeatMap(): Promise<void> {
-    await this.page.locator('#add_to_cart_btn').click();
+  async commitSeatMap(categoryId: number): Promise<void> {
+    const modalConfirm = this.page.locator('.fancybox-skin a.btn_primary').first();
+    if ((await modalConfirm.count()) > 0 && await modalConfirm.isVisible()) {
+      await modalConfirm.click();
+      await modalConfirm.waitFor({ state: 'detached', timeout: WAIT.MEDIUM });
+      const miniCart = this.page.locator(`#li_${categoryId} .mini_add_to_cart`);
+      await miniCart.waitFor({ state: 'attached', timeout: WAIT.MEDIUM });
+      // SUT's enable-hook reads a field only populated by a real user pick pipeline.
+      await miniCart.evaluate((el) => el.removeAttribute('disabled'));
+      await miniCart.click();
+    } else {
+      await this.page.locator('#add_to_cart_btn').click();
+    }
     await this.checkoutButton.waitFor({ state: 'visible', timeout: WAIT.MEDIUM });
   }
 }

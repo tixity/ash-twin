@@ -328,7 +328,7 @@ export const observerFixtures = base.extend<{ observer: Observer }, { tenant: Te
       await obs.assert();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      testInfo.annotations.push({ type: 'feedback', description: `✗ observer:\n  ${msg.replace(/\n/g, '\n  ')}` });
+      testInfo.annotations.push({ type: 'feedback', description: `CAN YOU SEE THIS ?✗ observer:\n  ${msg.replace(/\n/g, '\n  ')}` });
       throw err;
     }
   },

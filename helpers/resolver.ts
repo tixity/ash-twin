@@ -4,7 +4,7 @@ import type { Category, CategoryCriteria } from '../types/category';
 import type { Addon, AddonCriteria } from '../types/addon';
 import type { EventSelector, CategorySelector, AddonSelector } from '../types/selectors';
 import { registeredShipmentKeys } from '../shipments';
-import { EventFactory } from './factories';
+import { EventFactory } from '../factories/event';
 
 
 const REP_DB_UNIQUE = 'main,sub';

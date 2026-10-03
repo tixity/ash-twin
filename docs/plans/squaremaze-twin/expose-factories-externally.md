@@ -4,7 +4,7 @@ A thin, external-facing surface over ash-twin's factories so that tenants, QA en
 
 ## Why
 
-The factories (`helpers/factories/`) already know how to compose a valid SquareMaze event + categories + (future) addons + discounts, write them to a tenant DB under the `ash-twin*` namespace, and leave them available for the cleanup script to reclaim. Today the only caller is the resolver's auto-fallback inside a running spec. That's a lot of capability trapped behind a Playwright entry point.
+The factories (`factories/`) already know how to compose a valid SquareMaze event + categories + (future) addons + discounts, write them to a tenant DB under the `ash-twin*` namespace, and leave them available for the cleanup script to reclaim. Today the only caller is the resolver's auto-fallback inside a running spec. That's a lot of capability trapped behind a Playwright entry point.
 
 squaremaze-twin opens that surface up:
 

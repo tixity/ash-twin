@@ -6,6 +6,7 @@ import type { Order } from '../types/order';
 import type { WebPages } from '../pages/web/types';
 import type { CheckoutUserInfo } from '../pages/web/default/checkout';
 import type { LoginCreds } from '../types/user';
+import type { SelectionStrategy } from '../types/seat';
 import type { TestCard } from '../payments';
 import { webPages } from '../pages/web/factory';
 import { Resolver } from '../helpers/resolver';
@@ -50,8 +51,6 @@ export class WebCustomer {
   async isOnAuthPage(): Promise<boolean> {
     return this.pages.auth.isOnPage();
   }
-
-// navigate to event page
 
   async openEvent(event: Event): Promise<void> {
     if (event.rep === 'sub' && event.mainId != null) {
@@ -105,8 +104,6 @@ export class WebCustomer {
     return parseInt(text.trim(), 10) || 0;
   }
 
-
-// Pay using whichever rendered handling has a registered strategy.
   async payWithAny(): Promise<void> {
     const available  = await this.pages.checkout.readAvailableHandlings();
     const registered = new Set(registeredPaymentKeys());
@@ -126,10 +123,6 @@ export class WebCustomer {
   /**
    * Full purchase flow: event → cart → (skip products interstitial if shown) →
    * checkout → optional payment → confirmation. Returns the resulting Order.
-   *
-   * Auto-skips the products interstitial when present — this composite is the
-   * "happy-path buy". Tests that need to interact with addons/products should
-   * drive the individual page objects through `customer.pages.*` instead.
    */
   async buyTicket(
     event:    Event,
@@ -142,6 +135,38 @@ export class WebCustomer {
     await this.pages.event.setQuantity(category.id, quantity);
     await this.pages.event.acceptTerms();
     await this.pages.event.addToCart(category.id);
+    return this.finishCheckout(opts);
+  }
+
+  /** Seated equivalent of buyTicket. Auto-picks first-n or best-available/GA based on the loaded map. */
+  async buySeatedTicket(
+    event:    Event,
+    category: Category,
+    count:    number,
+    opts?:    BuyTicketOpts,
+  ): Promise<Order> {
+    await this.openEvent(event);
+    await this.pages.event.pickCategory(category.id);
+    await this.pages.event.openSeatMap(category.id);
+    await this.pages.seatmap.waitReady();
+
+    const strategy = await this.pickStrategyForCategory(category.id, count);
+
+    if (strategy.kind === 'best-available') {
+      await this.pages.seatmap.enterSection(strategy.sectionUuid);
+      await this.pages.event.setQuantity(category.id, strategy.count);
+      await this.pages.event.acceptTerms();
+      await this.pages.event.addToCart(category.id);
+    } else {
+      await this.pages.seatmap.pickByStrategy(strategy);
+      await this.pages.event.acceptTerms();
+      await this.pages.event.commitSeatMap(category.id);
+    }
+
+    return this.finishCheckout(opts);
+  }
+
+  private async finishCheckout(opts?: BuyTicketOpts): Promise<Order> {
     await this.pages.event.proceedToCheckout();
 
     if (await this.pages.checkoutProducts.isCurrent()) {
@@ -161,5 +186,29 @@ export class WebCustomer {
     }
 
     return await this.pages.confirmation.readOrder();
+  }
+
+  private async pickStrategyForCategory(categoryId: string | number, count: number): Promise<SelectionStrategy> {
+    // Section-level pick (GA or best-available) takes priority: individual seats
+    // on these categories exist in the data but aren't clickable — the SUT
+    // expects a single section click + quantity.
+    const sections = await this.pages.seatmap.listSections({ categoryId });
+    const sectionLevel = sections.find(s => s.ga || s.bestAvailable);
+    if (sectionLevel) return { kind: 'best-available', sectionUuid: sectionLevel.uuid, count };
+
+    const seats = await this.pages.seatmap.list({ categoryId, freeOnly: true });
+    if (seats.length >= count) {
+      const bySection = new Map<string, number>();
+      for (const s of seats) {
+        if (s.sectionUuid) bySection.set(s.sectionUuid, (bySection.get(s.sectionUuid) ?? 0) + 1);
+      }
+      const withEnough = [...bySection.entries()].find(([, n]) => n >= count);
+      return { kind: 'first-n', categoryId, count, sectionUuid: withEnough?.[0] };
+    }
+
+    throw new Error(
+      `buySeatedTicket: category ${categoryId} has only ${seats.length} free seats ` +
+      `and no GA/best-available section fallback.`,
+    );
   }
 }

@@ -2,9 +2,9 @@ import type { Page } from '@playwright/test';
 import type { TenantConfig } from '../types/tenant';
 import type { DbClient } from '../helpers/db_client';
 import type { Event } from '../types/event';
-import { AdminEventsPage } from '../pages/admin/admin_events_page';
-import { AdminEventFormPage } from '../pages/admin/admin_event_form_page';
-import { AdminOrderDetailsPage } from '../pages/admin/admin_order_details';
+import { AdminEventsPage } from '../pages/admin/events';
+import { AdminEventDetails } from '../pages/admin/event/details';
+import { AdminOrderDetailsPage } from '../pages/admin/order_details';
 
 export class Admin {
   constructor(
@@ -34,15 +34,13 @@ export class Admin {
     await list.open();
     await list.clickAdd();
 
-    const form = new AdminEventFormPage(this.page);
-    await form.fillTitle(title);
-    if (payload.capacity !== undefined && payload.capacity !== null) {
-      await form.fillCapacity(payload.capacity);
-    }
-    await form.save();
+    const details = new AdminEventDetails(this.page);
+    await details.fill({ name: title });
+    await details.save();
 
-    if (await form.hasError()) {
-      throw new Error(`createEvent failed: ${await form.errorSummary()}`);
+    const err = await details.errorSummary();
+    if (err) {
+      throw new Error(`createEvent failed: ${err}`);
     }
 
     const row = await this.db.one<{ id: number; title: string } & import('mysql2').RowDataPacket>(

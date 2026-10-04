@@ -1,10 +1,11 @@
 import type { DbClient } from './db_client';
 import type { Event, EventCriteria, EventFactoryInput, EventRep } from '../types/event';
-import type { Category, CategoryCriteria } from '../types/category';
+import type { Category, CategoryCriteria, CategoryFactoryInput } from '../types/category';
 import type { Addon, AddonCriteria } from '../types/addon';
 import type { EventSelector, CategorySelector, AddonSelector } from '../types/selectors';
 import { registeredShipmentKeys } from '../shipments';
 import { EventFactory } from '../factories/event';
+import { CategoryFactory } from '../factories/category';
 
 
 const REP_DB_UNIQUE = 'main,sub';
@@ -20,10 +21,12 @@ function repFromDb(v: string | null | undefined): EventRep | undefined {
 }
 
 export class Resolver {
-  private factory: EventFactory;
+  private eventFactory:    EventFactory;
+  private categoryFactory: CategoryFactory;
 
   constructor(private db: DbClient) {
-    this.factory = new EventFactory(db);
+    this.eventFactory    = new EventFactory(db);
+    this.categoryFactory = new CategoryFactory(db);
   }
 
   // ── Events ──────────────────────────────────────────────────────────────
@@ -41,7 +44,7 @@ export class Resolver {
       const { where, params, orderBy } = this.buildEventCriteriaWhere(selector as EventCriteria);
       row = await this.queryEvent(where, params, orderBy);
       if (!row) {
-        const { event } = await this.factory.build(selector as EventFactoryInput);
+        const { event } = await this.eventFactory.build(selector as EventFactoryInput);
         return event;
       }
     } else {
@@ -398,7 +401,7 @@ export class Resolver {
 
   // ── Categories ──────────────────────────────────────────────────────────
 
-  async category(selector: CategorySelector): Promise<Category> {
+  async category(selector: CategorySelector | CategoryFactoryInput): Promise<Category> {
     let row: Category | null;
 
     if (typeof selector === 'number') {
@@ -406,8 +409,13 @@ export class Resolver {
     } else if (typeof selector === 'object' && 'id' in selector && 'eventId' in selector) {
       row = await this.queryCategory('c.category_id = ?', [selector.id]);
     } else if (typeof selector === 'object') {
-      const { where, params } = this.buildCategoryCriteriaWhere(selector as CategoryCriteria, 'c');
+      const criteria = selector as CategoryCriteria;
+      const { where, params } = this.buildCategoryCriteriaWhere(criteria, 'c');
       row = await this.queryCategory(where || '1=1', params);
+      if (!row && criteria.eventId !== undefined) {
+        const built = await this.categoryFactory.build(criteria.eventId, selector as CategoryFactoryInput);
+        return built;
+      }
     } else {
       throw new Error(`Unrecognized category selector: ${JSON.stringify(selector)}`);
     }

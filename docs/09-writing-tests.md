@@ -135,55 +135,65 @@ expect(dbOrder?.status).toBe('ord');                            // DB: committed
 
 `db.deleteOrderById()` doesn't exist yet — paid orders are the desired state, so purchase tests don't clean up. Cancelled/failed test orders can be tidied by an offline job if they pile up.
 
-## Factories — self-contained fixtures via direct DB insert
+## Factories — the single source of fixture rows
 
-Some tests need a specific fixture shape (e.g. an addon with `category_min=3, category_max=5, category_multiple_of=2`, or a promo-code discount capped at 5 uses) that no tenant currently has seeded. Rather than depending on pre-existing rows, seed them inline via `factories/`.
+Every INSERT and DELETE for test fixtures goes through a factory in `factories/`. Specs never run raw SQL — they call `resolver.event(...)` / `resolver.category(...)` for finding-or-building, or call a `createX / deleteX` pair directly when they need the handle.
 
-Each factory follows the same shape: a `create*` for the raw insert, a `delete*` for cleanup, and a `with*` combinator that wraps the test body in try/finally so the row is torn down whether the test passes, fails, or throws. Callers use only the `with*` combinator.
+### Where does the SQL live?
+
+| Operation | File |
+|---|---|
+| Create a test row (INSERT) | `factories/{entity}.ts` |
+| Delete a test row (DELETE) | `factories/{entity}.ts` |
+| Edit lifecycle on an entity | `factories/{entity}.ts` |
+| Read for an assertion (SELECT) | `helpers/db_client.ts` |
+| Flip a column mid-test (`setEventField`, `setCategoryField`) | `helpers/db_client.ts` |
+| Config overrides (`overrideConfig`, `restoreConfig`) | `helpers/db_client.ts` |
+
+Row lifecycle = factory. Reading or ad-hoc column flip = DbClient. Never inline SQL in a spec.
+
+### Resolver auto-fallback
+
+`resolver.event(criteria)` and `resolver.category(criteria)` first query the DB. If nothing matches:
+
+- **Event**: the resolver delegates to `EventFactory` and builds an `ash-twin-event-<nonce>` matching the criteria.
+- **Category**: the resolver delegates to `CategoryFactory` — but only when `criteria.eventId` is set. Without an event scope the resolver has nothing to attach the category to, so it throws.
+
+That means every spec using `events.normal` + a GA category criteria gets a usable fixture whether the tenant has seed data or not. The `ash-twin*` naming is the hook the cleanup script uses to reclaim rows.
+
+```ts
+const event = await resolver.event({
+  ...events.normal,
+  categories: [{ numbering: 'none', webPublished: true, soldout: false }],
+});
+// resolver found a match → that event
+// resolver found nothing → EventFactory built an ash-twin event + GA category and returned it
+```
+
+### Preset bundles
+
+`helpers/presets/{event,discount}.ts` export shared `satisfies Partial<...>` constants — `events.normal`, `discounts.normal`, etc. Specs spread them into resolver / factory calls and override only the fields that matter to the test.
 
 ### Available factories
 
-`factories/addon.ts` — `withAddon(db, parentEventId, opts, fn)`:
+| File | Factory API | Notes |
+|---|---|---|
+| `factories/event.ts` | `EventFactory.build({ ...criteria, categories? })` | GA + multiday (main + N subs). Writes event + sub events + categories. Refuses `hasAddons`, `hasHandling`, seated categories. Resolver uses this on auto-fallback. |
+| `factories/category.ts` | `CategoryFactory.build(eventId, { numbering, size?, price?, webPublished?, ... })` | GA only (`numbering: 'none'`). Resolver uses this on auto-fallback when criteria has `eventId`. |
+| `factories/discount.ts` | `createDiscount(db, opts)` / `deleteDiscount(db, id)` / `withDiscount(db, opts, fn)` | Inserts into `discount` + optional `promocode`. Supports `begin` / `end` for validity-window tests. |
+| `factories/addon.ts` | `withAddon(db, parentEventId, opts, fn)` | Inserts event (`event_addon=1`) + category + `addonlink` + 20 seats per category. |
 
-```ts
-import { withAddon } from '../../../factories/addon';
+### Direct factory calls vs `with*` combinators
 
-await withAddon(db, event.id, {
-  categories: [{ min: 3, max: 5, multipleOf: 2 }],
-}, async (addon) => {
-  // addon: { addonId, categoryIds, addonLinkId, name }
-  await customer.openEvent(event);
-  // ... drive the flow, assert, feedback ...
-});
-// addonlink → seat → category → event rows deleted unconditionally on exit
-```
-
-Inserts into `event` (with `event_addon=1, event_model='product'`), `category`, `addonlink`, and 20 `seat` rows per category (so the reservation flow finds inventory).
-
-`factories/discount.ts` — `withDiscount(db, opts, fn)`:
-
-```ts
-import { withDiscount } from '../../../factories/discount';
-
-await withDiscount(db, {
-  eventId: addon.addonId, type: 'percent', value: 25,
-  promoCode: 'ASHTWIN-25',            // optional — omit for auto-apply
-  minTickets: 3, maxTickets: 20,      // optional — discountrestrictions plugin
-}, async (discount) => {
-  // discount: { discountId, promoId, promoCode, name, linkedEventIds, isPromo }
-});
-// promocode → discountlink → discount rows deleted on exit
-```
-
-Inserts into `discount` (with `discount_promo` populated when `promoCode` is set), one `discountlink` row per `linkedEventIds` entry (for multi-event / global discounts), and one `promocode` row (with `promo_max` / `promo_used` for the exhausted-code tests) when a code is provided.
+Use `withX(db, opts, fn)` when the test body is self-contained and you don't need the fixture id outside that scope. Use `createX / deleteX` directly when you need the returned id to feed into another factory (e.g. `createDiscount` with `eventId: event.id` + explicit `deleteDiscount` in `finally` so the lifetime straddles the test's own setup).
 
 ### When to write a new factory
 
-- The test needs a specific row shape that varies per-test, and hard-coding it via `db.setEventField` would leak setup into the spec.
+- A new SquareMaze entity ships (user, order fixture, scanlog, etc.) and tests need to seed it.
 - Multiple specs would benefit from the same seeded shape.
 - Cleanup is non-trivial (dependent rows, plugin side-tables).
 
-The pattern: interface for `opts`, function for `create*`, function for `delete*`, `with*` combinator wrapping `create → fn → delete` in try/finally. Bypassing PHP save hooks is fine for pure-content rows; if a future test needs plugin side-effects (e.g. seat inventory init that only fires from the admin path), escalate that specific case to an admin HTTP fixture.
+Shape: interface for `opts`, `createX` + `deleteX` + optional `withX`. Name all rows with the `ash-twin*` prefix so the cleanup script can reclaim them. Bypassing PHP save hooks is fine for pure-content rows; if a future test needs plugin side-effects (e.g. seat inventory init that only fires from the admin path), escalate to an admin HTTP fixture.
 
 ## Long-running tests raise their own timeout
 

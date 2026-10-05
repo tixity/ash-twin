@@ -121,6 +121,19 @@ export class WebCustomer {
   }
 
   /**
+   * Add N tickets of a GA category to the cart and stop. For tests that care
+   * about cart-state side effects (discount application, stock reservation,
+   * cart badge) without going through checkout.
+   */
+  async addToCart(event: Event, category: Category, quantity: number): Promise<void> {
+    await this.openEvent(event);
+    await this.pages.event.pickCategory(category.id);
+    await this.pages.event.setQuantity(category.id, quantity);
+    await this.pages.event.acceptTerms();
+    await this.pages.event.addToCart(category.id);
+  }
+
+  /**
    * Full purchase flow: event → cart → (skip products interstitial if shown) →
    * checkout → optional payment → confirmation. Returns the resulting Order.
    */
@@ -130,11 +143,7 @@ export class WebCustomer {
     quantity: number,
     opts?:    BuyTicketOpts,
   ): Promise<Order> {
-    await this.openEvent(event);
-    await this.pages.event.pickCategory(category.id);
-    await this.pages.event.setQuantity(category.id, quantity);
-    await this.pages.event.acceptTerms();
-    await this.pages.event.addToCart(category.id);
+    await this.addToCart(event, category, quantity);
     return this.finishCheckout(opts);
   }
 

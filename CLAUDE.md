@@ -62,6 +62,7 @@ npm run test:headed                               # headed browser
 - **SquareMaze DB conventions.** Singular tables, `{table}_{field}` prefixed columns, short-form enums (`'pub'` not `'published'`). Full rules in `docs/08-squaremaze-conventions.md`.
 - **`configuration` writes need cache invalidation.** Set `disable_config_cache=1` and call `admin.clearCache()` in `beforeAll` when any test flips config via `db.overrideConfig`.
 - **Playwright URLs.** Open exactly as given by the user, do not "fix" them.
+- **Snake_case for files and folders.** `event_form.ts`, `pos_registration.spec.ts`, `discount_validity/`. Never kebab-case. Product names in prose (`ash-twin`, `squaremaze-twin`) are allowed in text bodies; file paths are not.
 - **Git writes ask first.** Never commit, stage, or push without explicit confirmation.
 
 ## Themes

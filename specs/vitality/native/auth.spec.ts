@@ -168,26 +168,22 @@ test(14, "vitality", async ({ customer }) => {
 
 test(15, "vitality", async ({ customer, tenant, feedback }) => {
   const creds = tenant.users.testCustomer!;
-  const auth  = customer.pages.auth;
-  await auth.open();
-  await auth.login(creds);
-  expect(await auth.isSignedIn()).toBe(true);
+  await customer.login(creds);
+  expect(await customer.isSignedIn()).toBe(true);
   feedback(`user ${creds.username} logged in`);
 });
 
 test(25, "vitality", async ({ customer, tenant, feedback }) => {
   const creds = requireTestCustomer(tenant);
-  const auth  = customer.pages.auth;
 
-  await auth.open();
-  await auth.login(creds);
-  expect(await auth.isSignedIn()).toBe(true);
+  await customer.login(creds);
+  expect(await customer.isSignedIn()).toBe(true);
 
   await customer.logout();
-  expect(await auth.isSignedIn()).toBe(false);                    // DOM: header shows guest state
+  expect(await customer.isSignedIn()).toBe(false);                // DOM: header shows guest state
 
-  await customer.page.goto('/index.php?action=user_orders');      // server truth: authenticated route
-  expect(await auth.isSignedIn()).toBe(false);                    // responds as anonymous
+  await customer.openOrdersHistory();                             // server truth: authenticated route
+  expect(await customer.isSignedIn()).toBe(false);                // responds as anonymous
 
   feedback(`user ${creds.username} logged out`);
 });
@@ -204,12 +200,7 @@ test(26, "vitality", async ({ customer, resolver, tenant, feedback }) => {
 
   await customer.login(creds);
 
-  // Seed the cart with one ticket.
-  await customer.openEvent(event);
-  await customer.pages.event.pickCategory(category.id);
-  await customer.pages.event.setQuantity(category.id, 1);
-  await customer.pages.event.acceptTerms();
-  await customer.pages.event.addToCart(category.id);
+  await customer.addToCart(event, category, 1);
   expect(await customer.cartItemCount()).toBeGreaterThan(0);
 
   await customer.logout();

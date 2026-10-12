@@ -206,11 +206,6 @@ export class CapetownAuthPage extends BasePage {
     ]);
   }
 
-  async login(creds: LoginCreds): Promise<void> {
-    await this.fillLogin(creds);
-    await this.submitLogin();
-  }
-
   /** True when either the login or register form is visible on the current page. */
   async isOnPage(): Promise<boolean> {
     if (await this.loginForm.isVisible())    return true;

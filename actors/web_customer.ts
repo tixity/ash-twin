@@ -41,7 +41,8 @@ export class WebCustomer {
 
   async login(creds: LoginCreds): Promise<void> {
     await this.pages.auth.open();
-    await this.pages.auth.login(creds);
+    await this.pages.auth.fillLogin(creds);
+    await this.pages.auth.submitLogin();
   }
 
   async isSignedIn(): Promise<boolean> {
@@ -95,6 +96,10 @@ export class WebCustomer {
 
   async logout(): Promise<void> {
     await this.pages.auth.logout();
+  }
+
+  async openOrdersHistory(): Promise<void> {
+    await this.page.goto('/index.php?action=user_orders');
   }
 
   async cartItemCount(): Promise<number> {

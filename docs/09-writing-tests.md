@@ -345,6 +345,36 @@ Everything else — helper functions, shared setup, ad-hoc selectors, `page.eval
 
 The one narrow exception is the **`validBase()` payload factory** each negative-validation spec defines locally — it's a per-spec vocabulary for "a fully valid submission" that gets partially overridden per test. Keeps the "valid minus one" pattern legible in one file.
 
+## Reach for the actor method first
+
+Before inlining a sequence of `customer.pages.*` or `admin.pages.*` calls, check the actor. If the flow already exists as a method, use it. If it doesn't but the sequence is more than one page gesture, add the method to the actor and call that from the spec.
+
+Why: the actor is where multi-page / multi-gesture flows get a name. Specs that inline the same four-step sequence as another spec are hiding a shared flow. The next regression in that flow gets fixed once, in the actor, instead of in every spec that copy-pasted the sequence.
+
+```ts
+// ❌ Reinvents customer.addToCart(event, category, 1)
+await customer.openEvent(event);
+await customer.pages.event.pickCategory(category.id);
+await customer.pages.event.setQuantity(category.id, 1);
+await customer.pages.event.acceptTerms();
+await customer.pages.event.addToCart(category.id);
+
+// ✅ Business orchestration lives on the actor
+await customer.addToCart(event, category, 1);
+```
+
+```ts
+// ❌ Raw URL and raw page.goto leak into the spec
+await customer.page.goto('/index.php?action=user_orders');
+
+// ✅ Thin actor method; URL knowledge stays in one place
+await customer.openOrdersHistory();
+```
+
+**When to add vs when to inline:** a single `customer.pages.auth.open()` style call stays in the spec — it's a direct atomic gesture. A sequence of two or more gestures that together describe a business step (register, add to cart, checkout, probe a protected route) belongs on the actor.
+
+**Login/logout convention.** Business-flow tests use `customer.login(creds)` / `customer.logout()` / `customer.isSignedIn()`, not the auth page object. The page object is only reached directly in auth tests that assert on the form itself (per-field validation, login error states).
+
 ## Rules to write down
 
 - **Every test lives in `specs/registry.json`.** The wrapper enforces this at import time.
@@ -354,3 +384,4 @@ The one narrow exception is the **`validBase()` payload factory** each negative-
 - **Clean up in `finally`.** Any test that creates a user / order / row cleans it up unconditionally.
 - **Own your timeout.** Tests that hit gateway sandboxes call `test.setTimeout(...)` explicitly at the top.
 - **No logic in spec files.** Selectors → page objects. Orchestration → actors. Fixtures → factories. Presets → `helpers/presets/`. Specs stay declarative.
+- **Actor method before inline sequence.** If an actor already names the flow, use it. If it doesn't and the flow is >1 gesture, add it to the actor rather than inlining the sequence.

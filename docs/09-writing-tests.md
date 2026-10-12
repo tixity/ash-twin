@@ -152,23 +152,42 @@ Every INSERT and DELETE for test fixtures goes through a factory in `factories/`
 
 Row lifecycle = factory. Reading or ad-hoc column flip = DbClient. Never inline SQL in a spec.
 
-### Resolver auto-fallback
+### Resolver-first: always ask, never build directly
 
-`resolver.event(criteria)` and `resolver.category(criteria)` first query the DB. If nothing matches:
+Every fixture lookup goes through the resolver — events, categories, discounts, and future entities. The resolver queries the DB first, and if nothing matches, delegates to the matching factory, which inserts a row named `ash-twin-<entity>-<nonce>`. The spec never calls `createX(...)` directly.
 
-- **Event**: the resolver delegates to `EventFactory` and builds an `ash-twin-event-<nonce>` matching the criteria.
-- **Category**: the resolver delegates to `CategoryFactory` — but only when `criteria.eventId` is set. Without an event scope the resolver has nothing to attach the category to, so it throws.
-
-That means every spec using `events.normal` + a GA category criteria gets a usable fixture whether the tenant has seed data or not. The `ash-twin*` naming is the hook the cleanup script uses to reclaim rows.
+| Entity | Resolver method | Fallback factory | Guard |
+|---|---|---|---|
+| Event | `resolver.event(criteria)` | `EventFactory` | — |
+| Category | `resolver.category(criteria)` | `CategoryFactory` | `criteria.eventId` must be set — the factory needs something to attach the category to |
+| Discount | `resolver.discount(criteria)` | `createDiscount` | — |
 
 ```ts
-const event = await resolver.event({
-  ...events.normal,
-  categories: [{ numbering: 'none', webPublished: true, soldout: false }],
-});
-// resolver found a match → that event
-// resolver found nothing → EventFactory built an ash-twin event + GA category and returned it
+const event    = await resolver.event(events.normal);
+const category = await resolver.category({ eventId: event.id, numbering: 'none', webPublished: true, soldout: false });
+const d        = await resolver.discount({ eventId: event.id, state: 'active' });
+// each call: seeded row OR factory-built ash-twin row, same contract either way
 ```
+
+### Tests never clean up — the cleanup script does
+
+Factories prefix every row they create with `ash-twin-*`. Nothing else in the DB carries that prefix. The cleanup script sweeps `ash-twin*` rows across all tables on demand, so **no spec calls `deleteX(...)` in `finally`**.
+
+Why: cleanup inside the test couples lifetime to a single run and makes the resolver's reuse story unsafe (a passing test could delete a row another parallel test just resolved). Centralised sweep means every test gets fresh-or-reused fixtures, no cross-contamination risk, and no bookkeeping noise in spec bodies.
+
+The one exception: per-test state that doesn't carry the prefix. The signup test creates a `user` row with the test's own email — it still deletes that in `finally` via `db.deleteUserByEmail(email)`.
+
+### State-based discount resolution
+
+Discount criteria filter on **validity state relative to `NOW()`**, not specific dates:
+
+| `state` | SQL predicate | Factory builds (on miss) |
+|---|---|---|
+| `active` | `(begin IS NULL OR begin <= NOW()) AND (end IS NULL OR end >= NOW())` | no window — always valid |
+| `expired` | `end IS NOT NULL AND end < NOW()` | `end = NOW() − 2 days` |
+| `pending` | `begin IS NOT NULL AND begin > NOW()` | `begin = NOW() + 2 days` |
+
+Tests only ever ask "I need an expired discount on this event". Specific dates never leak into spec files.
 
 ### Preset bundles
 

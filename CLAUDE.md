@@ -52,7 +52,7 @@ npm run test:headed                               # headed browser
 - **IDs are permanent.** Never renumber. Deleting leaves a gap, that is fine.
 - **Category on every test.** `test(id, 'vitality', fn)`. Folder equals category convention (`specs/vitality/` uses `'vitality'`).
 - **Verify DB and DOM.** Frontend can lie about actual state. Signup and purchase tests check both sides.
-- **Clean up in `finally`.** Any test that creates a user, order, or row cleans it up unconditionally.
+- **Tests never clean up fixture rows.** Factories (`factories/*.ts`) name every row they create with the `ash-twin*` prefix. The cleanup script sweeps `ash-twin*` rows on demand (see `docs/09-writing-tests.md`). The one exception is per-test state that doesn't carry the prefix, e.g. the signup test's own user row (`db.deleteUserByEmail` in `finally`).
 - **Own your timeout.** Global per-test is 60s. Gateway sandbox tests call `test.setTimeout(120_000)` (or `180_000` for Tabby) at the top.
 - **No branching on tenant in actors or specs.** Tenant differences live in `pages/web/{theme}/` behind the factory in `pages/web/factory.ts`. Actors and specs stay theme-agnostic.
 - **No logic in spec files.** A spec file hosts `test(id, ...)` bodies and nothing else. Selectors, DOM interaction, waits, and gesture sequences belong in page objects. Business orchestration (login-then-purchase, add-addon-then-checkout) belongs in actors. Fixture seeding belongs in `factories/`. Criteria bundles belong in `helpers/presets/`. If a spec needs a helper, extract it to the right layer — do not define it inline. The only inline code a spec should contain is: a `validBase()` payload for negative-validation tests, `expect(...)` assertions, and a `feedback(...)` line.

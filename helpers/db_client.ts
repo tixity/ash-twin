@@ -244,6 +244,17 @@ export class DbClient {
     await this.execute('DELETE FROM user WHERE user_email = ?', [email]);
   }
 
+  async cartSeatDiscountId(eventId: number, categoryId: number): Promise<number | null> {
+    const row = await this.one<{ seat_discount_id: number | null }>(
+      `SELECT seat_discount_id FROM seat
+       WHERE seat_event_id = ? AND seat_category_id = ? AND seat_status = 'res'
+       ORDER BY seat_id DESC
+       LIMIT 1`,
+      [eventId, categoryId],
+    );
+    return row?.seat_discount_id ?? null;
+  }
+
   async userMaillist(email: string): Promise<number | null> {
     const row = await this.one<{ user_maillist: number }>(
       'SELECT user_maillist FROM user WHERE user_email = ? LIMIT 1',

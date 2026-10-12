@@ -2,10 +2,12 @@ import type { DbClient } from './db_client';
 import type { Event, EventCriteria, EventFactoryInput, EventRep } from '../types/event';
 import type { Category, CategoryCriteria, CategoryFactoryInput } from '../types/category';
 import type { Addon, AddonCriteria } from '../types/addon';
+import type { Discount, DiscountCriteria } from '../types/discount';
 import type { EventSelector, CategorySelector, AddonSelector } from '../types/selectors';
 import { registeredShipmentKeys } from '../shipments';
 import { EventFactory } from '../factories/event';
 import { CategoryFactory } from '../factories/category';
+import { createDiscount } from '../factories/discount';
 
 
 const REP_DB_UNIQUE = 'main,sub';
@@ -588,4 +590,87 @@ export class Resolver {
 
     return { where: parts.join(' AND '), params };
   }
+
+  // ── Discounts ───────────────────────────────────────────────────────────
+
+  async discount(criteria: DiscountCriteria): Promise<Discount> {
+    const { where, params } = this.buildDiscountCriteriaWhere(criteria);
+    const row = await this.queryDiscount(where, params);
+    if (row) return row;
+
+    const built = await createDiscount(this.db, {
+      eventId:    criteria.eventId    ?? null,
+      categoryId: criteria.categoryId ?? null,
+      ...concreteWindowFor(criteria.state ?? 'active'),
+    });
+
+    const fresh = await this.queryDiscount('d.discount_id = ?', [built.discountId]);
+    if (!fresh) throw new Error(`Discount ${built.discountId} vanished immediately after insert`);
+    return fresh;
+  }
+
+  private async queryDiscount(where: string, params: unknown[]): Promise<Discount | null> {
+    const sql = `
+      SELECT
+        d.discount_id          AS id,
+        d.discount_name        AS name,
+        d.discount_event_id    AS eventId,
+        d.discount_category_id AS categoryId,
+        d.discount_type        AS type,
+        d.discount_value       AS value,
+        d.discount_active      AS active,
+        d.discount_promo       AS promo,
+        d.discount_begin       AS begin,
+        d.discount_end         AS end
+      FROM discount d
+      WHERE ${where || '1=1'}
+      ORDER BY d.discount_id DESC
+      LIMIT 1
+    `;
+    const row = await this.db.one<Discount>(sql, params);
+    if (!row) return null;
+    return { ...row, value: Number(row.value), promo: row.promo || null };
+  }
+
+  private buildDiscountCriteriaWhere(c: DiscountCriteria): { where: string; params: unknown[] } {
+    const parts: string[] = [];
+    const params: unknown[] = [];
+
+    if (c.eventId !== undefined) {
+      if (c.eventId === null) parts.push('d.discount_event_id IS NULL');
+      else { parts.push('d.discount_event_id = ?'); params.push(c.eventId); }
+    }
+    if (c.categoryId !== undefined) {
+      if (c.categoryId === null) parts.push('d.discount_category_id IS NULL');
+      else { parts.push('d.discount_category_id = ?'); params.push(c.categoryId); }
+    }
+
+    if (c.state === 'active') {
+      parts.push('(d.discount_begin IS NULL OR d.discount_begin <= NOW())');
+      parts.push('(d.discount_end   IS NULL OR d.discount_end   >= NOW())');
+    }
+    if (c.state === 'expired') {
+      parts.push('d.discount_end IS NOT NULL');
+      parts.push('d.discount_end < NOW()');
+    }
+    if (c.state === 'pending') {
+      parts.push('d.discount_begin IS NOT NULL');
+      parts.push('d.discount_begin > NOW()');
+    }
+
+    return { where: parts.join(' AND '), params };
+  }
+}
+
+function concreteWindowFor(state: 'active' | 'expired' | 'pending'): { begin?: string; end?: string } {
+  if (state === 'expired') return { end:   isoDaysFromNow(-2) };
+  if (state === 'pending') return { begin: isoDaysFromNow(+2) };
+  return {};
+}
+
+function isoDaysFromNow(deltaDays: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + deltaDays);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }

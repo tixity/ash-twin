@@ -76,6 +76,13 @@ export const registry: RegistryEntry[] = [
   { id: 69, title: 'contact API sets `sm-feedback-` cookie with Secure + HttpOnly + SameSite=None' },
   { id: 70, title: 'searchInit.escapeHTML renders active-filter labels as safe text without double-encoding' },
 
-  // seatmap
+  //  seatmap
   { id: 71, title: 'an authenticated user completes a seated purchase via the seatmap iframe' },
+
+  // --------------------------------------------------- FEATURES ------------------------------------------------------------
+
+  //  discount validity window
+  { id: 72, title: 'active discount applies to a GA cart' },
+  { id: 73, title: 'expired discount does not apply to a GA cart' },
+  { id: 74, title: 'pending (not-yet-started) discount does not apply to a GA cart' },
 ];

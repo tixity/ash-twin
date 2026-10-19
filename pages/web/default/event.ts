@@ -102,8 +102,11 @@ export class DefaultEventPage extends BasePage {
     await this.waitReady();
   }
 
-  async hasSeatMap(): Promise<boolean> {
-    return (await this.seatMapTrigger.count()) > 0;
+  async hasSeatMap(categoryId?: number): Promise<boolean> {
+    const scope = categoryId == null
+      ? this.seatMapTrigger
+      : this.page.locator(`#li_${categoryId} .js-openSeatMap`);
+    return (await scope.count()) > 0;
   }
 
   async openSeatMap(categoryId: number): Promise<void> {
@@ -115,6 +118,12 @@ export class DefaultEventPage extends BasePage {
   async commitSeatMap(categoryId: number): Promise<void> {
     const modalConfirm = this.page.locator('.fancybox-skin a.btn_primary').first();
     if ((await modalConfirm.count()) > 0 && await modalConfirm.isVisible()) {
+      // #whatsapp-widget sits at z-index 999998 and overlaps the fancybox
+      // Confirm button at viewport bottom-right. Hide it for the click.
+      await this.page.evaluate(() => {
+        const w = document.getElementById('whatsapp-widget');
+        if (w) w.style.display = 'none';
+      });
       await modalConfirm.click();
       await modalConfirm.waitFor({ state: 'detached', timeout: WAIT.MEDIUM });
       const miniCart = this.page.locator(`#li_${categoryId} .mini_add_to_cart`);

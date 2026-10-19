@@ -118,8 +118,11 @@ export class CapetownEventPage extends BasePage {
     await this.waitReady();
   }
 
-  async hasSeatMap(): Promise<boolean> {
-    return (await this.seatMapTrigger.count()) > 0;
+  async hasSeatMap(categoryId?: number): Promise<boolean> {
+    const scope = categoryId == null
+      ? this.seatMapTrigger
+      : this.page.locator(`#li_${categoryId} .btn-choose-seats, #li_${categoryId} .js-openSeatMap`);
+    return (await scope.count()) > 0;
   }
 
   async openSeatMap(categoryId: number): Promise<void> {

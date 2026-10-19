@@ -1,14 +1,72 @@
 import type { Frame, Page } from '@playwright/test';
 import { WAIT } from '../../pages/web/base';
 import type {
+  PickResult,
   SeatFilter,
   SeatMapDriver,
   SeatQuery,
   SeatSummary,
   SectionFilter,
   SectionSummary,
-  SelectionStrategy,
 } from '../../types/seat';
+
+interface AlgoSeat {
+  uuid:        string | number;
+  sectionUuid: string | number | null;
+  rowLabel:    string;
+  number:      number;
+  isFree:      boolean;
+}
+
+// Mirrors squaremaze's Seat::_findConsecutiveSeats + _getSeatsFromSection:
+// group seats by (section, row) then split each row on seat-number jumps > 1
+// (aisles / missing seats). Scan each block for a run of N free seats, reject
+// any run that would orphan a single free seat (wall or occupied neighbour on
+// either side). Fall back to allowing orphans only if nothing is clean. See
+// squaremaze/includes/models/model.seat.php:1023+ for the authoritative rules.
+export function sectionBestAvailable(seats: readonly AlgoSeat[], n: number): Array<string | number> | null {
+  if (n <= 0) return [];
+  const sorted = [...seats].sort((a, b) => (
+    String(a.sectionUuid ?? '').localeCompare(String(b.sectionUuid ?? '')) ||
+    String(a.rowLabel).length - String(b.rowLabel).length ||
+    String(a.rowLabel).localeCompare(String(b.rowLabel)) ||
+    a.number - b.number
+  ));
+  const blocks: AlgoSeat[][] = [];
+  let current: AlgoSeat[] = [];
+  for (const s of sorted) {
+    const last = current[current.length - 1];
+    const sameBlock = last && last.sectionUuid === s.sectionUuid && last.rowLabel === s.rowLabel && s.number - last.number === 1;
+    if (!sameBlock && current.length) { blocks.push(current); current = []; }
+    current.push(s);
+  }
+  if (current.length) blocks.push(current);
+
+  for (const allowGaps of [false, true]) {
+    for (const block of blocks) {
+      let run: AlgoSeat[] = [];
+      for (let i = 0; i < block.length; i++) {
+        if (!block[i].isFree) { run = []; continue; }
+        run.push(block[i]);
+        if (run.length < n) continue;
+        if (allowGaps || !orphansCreated(block, i, n)) return run.map(s => s.uuid);
+        run = [];
+      }
+    }
+  }
+  return null;
+}
+
+function orphansCreated(block: readonly AlgoSeat[], iEnd: number, n: number): boolean {
+  const iStart = iEnd - n + 1;
+  const r1 = block[iEnd + 1], r2 = block[iEnd + 2];
+  if (r1?.isFree && r2 === undefined)   return true;
+  if (r1?.isFree && r2 && !r2.isFree)   return true;
+  const l1 = block[iStart - 1], l2 = block[iStart - 2];
+  if (l1?.isFree && l2 && !l2.isFree)   return true;
+  if (l1?.isFree && iStart - 1 >= 0 && l2 === undefined) return true;
+  return false;
+}
 
 export class LegacyDriver implements SeatMapDriver {
   // Inline (#seatmapframe) for pm_load=1/2, modal (.fancybox-iframe) for pm_load=0.
@@ -59,6 +117,7 @@ export class LegacyDriver implements SeatMapDriver {
         .filter(s => !flt?.categoryId || String(s.attributes?.categoryId ?? s.category?.id) === String(flt.categoryId))
         .map(s => ({
           uuid:          s.uuid,
+          name:          String(s.attributes?.label?.text ?? s.attributes?.label ?? ''),
           categoryId:    s.attributes?.categoryId ?? s.category?.id ?? '',
           ga:            !!s.attributes?.ga,
           bestAvailable: !!s.category?.bestAvailable,
@@ -77,7 +136,7 @@ export class LegacyDriver implements SeatMapDriver {
     return match;
   }
 
-  async pick(uuids: string[]): Promise<void> {
+  async pick(uuids: Array<string | number>): Promise<void> {
     if (uuids.length === 0) return;
     const f = await this.frame();
 
@@ -89,23 +148,16 @@ export class LegacyDriver implements SeatMapDriver {
         return seat?.sid ?? seat?.section?.uuid ?? null;
       });
     }, uuids);
-    for (const sid of new Set(sids.filter((s): s is string => !!s))) {
+    for (const sid of new Set(sids.filter((s: unknown): s is string | number => s != null))) {
       await this.enterSection(sid);
     }
 
-    const notFound: string[] = [];
+    const notFound: Array<string | number> = [];
     for (const uuid of uuids) {
-      const handle = await f.evaluateHandle((id) => {
-        const w = window as any;
-        const seat = w.app?.seatmap?.seatsAndTableSeats?.find((s: any) => s.uuid === id);
-        const node = seat?.shape?.node;
-        return node instanceof Element ? node : null;
-      }, uuid);
-      const el = handle.asElement();
-      if (!el) { await handle.dispose(); notFound.push(uuid); continue; }
-      // Seats sit under transparent overlay layers, bypass actionability.
-      await el.click({ force: true });
-      await handle.dispose();
+      const target = await this.seatViewportPoint(uuid);
+      if (!target) { notFound.push(uuid); continue; }
+      await this.page.mouse.move(target.x, target.y);
+      await this.page.mouse.click(target.x, target.y);
     }
 
     const selected = await f.evaluate(() => {
@@ -117,57 +169,127 @@ export class LegacyDriver implements SeatMapDriver {
     if (notSelected.length > 0) throw new Error(`seatmap.pick: renderer refused selection: ${notSelected.join(', ')}`);
   }
 
-  async pickFirstN(categoryId: string | number, count: number, sectionUuid?: string): Promise<void> {
-    const free = await this.list({ categoryId, sectionUuid, freeOnly: true });
-    if (free.length < count) {
-      const scope = sectionUuid ? `section ${sectionUuid} of category ${categoryId}` : `category ${categoryId}`;
-      throw new Error(`seatmap: only ${free.length} free seats in ${scope}, needed ${count}`);
-    }
-    await this.pick(free.slice(0, count).map(s => s.uuid));
-  }
-
-  async pickInSection(sectionUuid: string, count: number): Promise<void> {
-    const free = await this.list({ sectionUuid, freeOnly: true });
-    if (free.length < count) {
-      throw new Error(`seatmap: only ${free.length} free seats in section ${sectionUuid}, needed ${count}`);
-    }
-    await this.pick(free.slice(0, count).map(s => s.uuid));
-  }
-
-  async enterSection(sectionUuid: string): Promise<void> {
+  private async seatViewportPoint(uuid: string | number): Promise<{ x: number; y: number } | null> {
+    const iframeBox = await this.page.locator(this.iframeSelector).first().boundingBox();
+    if (!iframeBox) return null;
     const f = await this.frame();
-    const handle = await f.evaluateHandle((sid) => {
+    const inner = await f.evaluate((id) => {
       const w = window as any;
-      const section = w.app?.seatmap?.getSectionById?.(sid);
-      const node = section?.shape?.node;
-      return node instanceof Element ? node : null;
+      const seat = w.app?.seatmap?.seatsAndTableSeats?.find((s: any) => s.uuid === id);
+      const node = seat?.shape?.node;
+      if (!(node instanceof Element) || !node.isConnected) return null;
+      const r = (node as Element).getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, uuid);
+    if (!inner) return null;
+    return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
+  }
+
+  // Single entry point. Reads the map, routes to the right pick strategy based
+  // on what the renderer actually loaded, then returns a PickResult the caller
+  // uses to drive the correct host-page finalisation (confirm vs. qty + addToCart).
+  async pickSeats(categoryId: string | number, count: number): Promise<PickResult> {
+    const sections = await this.listSections({ categoryId });
+
+    if (sections.length === 0) {
+      throw new Error(`seatmap.pickSeats: category ${categoryId} has no sections — flat-mode pickSeats not yet implemented`);
+    }
+
+    const specialSection = sections.find(s => s.ga || s.bestAvailable);
+    const regularSections = sections.filter(s => !s.ga && !s.bestAvailable);
+
+    if (regularSections.length === 0 && specialSection) {
+      throw new Error(`seatmap.pickSeats: category ${categoryId} is GA / best-available — not yet implemented`);
+    }
+
+    const pool = await this.candidatesFor({ categoryId });
+    const bySection = new Map<string | number, AlgoSeat[]>();
+    for (const seat of pool) {
+      const key = seat.sectionUuid;
+      if (key == null) continue;
+      const bucket = bySection.get(key) ?? [];
+      bucket.push(seat);
+      bySection.set(key, bucket);
+    }
+
+    // Match squaremaze's section-name ordering so test picks are deterministic
+    // and align with what the SUT would hand a real best-available buyer.
+    const ordered = [...regularSections].sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const section of ordered) {
+      const sectionPool = bySection.get(section.uuid) ?? [];
+      if (sectionPool.filter(s => s.isFree).length < count) continue;
+      const uuids = sectionBestAvailable(sectionPool, count);
+      if (!uuids) continue;
+      await this.enterSection(section.uuid);
+      await this.pick(uuids);
+      return { kind: 'seats', uuids, sectionUuid: section.uuid };
+    }
+
+    throw new Error(`seatmap.pickSeats: no section carries ${count} suitable seats for category ${categoryId}`);
+  }
+
+  private async candidatesFor(filter: { categoryId?: string | number; sectionUuid?: string | number }): Promise<AlgoSeat[]> {
+    const f = await this.frame();
+    return f.evaluate((flt) => {
+      const w = window as any;
+      const seats = (w.app?.seatmap?.seatsAndTableSeats ?? []) as any[];
+      const sidOf = (s: any) => s?.sid ?? s?.section?.uuid ?? null;
+      return seats
+        .filter(s => !flt?.categoryId  || String(s.attributes?.categoryId) === String(flt.categoryId))
+        .filter(s => !flt?.sectionUuid || sidOf(s) === flt.sectionUuid)
+        .map(s => ({
+          uuid:        s.uuid,
+          sectionUuid: sidOf(s),
+          rowLabel:    (s.type === 'table_seat' ? s.table?.attributes?.label : s.row?.attributes?.label) ?? '',
+          number:      parseInt(String(s.attributes?.label ?? ''), 10) || 0,
+          isFree:      s.attributes?.status === 0,
+        }));
+    }, filter) as Promise<AlgoSeat[]>;
+  }
+
+  async enterSection(sectionUuid: string | number): Promise<void> {
+    const target = await this.sectionViewportPoint(sectionUuid);
+    if (!target) throw new Error(`seatmap: no section for ${sectionUuid}`);
+    // Cursor goes to the section (visible), then click dispatches on the shape
+    // node. SVG `on('click', ...)` handlers fire on the dispatched event; the
+    // renderer's section-click body calls `zoomAndCenterBox` and reveals seats.
+    await this.page.mouse.move(target.x, target.y);
+    const f = await this.frame();
+    await f.evaluate((sid) => {
+      const w = window as any;
+      const node = w.app?.seatmap?.getSectionById?.(sid)?.shape?.node;
+      if (node instanceof Element) {
+        node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      }
     }, sectionUuid);
-    const el = handle.asElement();
-    if (!el) { await handle.dispose(); throw new Error(`seatmap: no section shape for ${sectionUuid}`); }
-    await el.click({ force: true });
-    await handle.dispose();
-    // Wait for zoom-reveal to draw seat shapes, then let the animation settle —
-    // shapes get swapped during the transition and a click on a mid-animation
-    // handle throws "Element is not attached to the DOM".
     await f.waitForFunction(
       (sid) => {
         const w = window as any;
         const seats = (w.app?.seatmap?.seatsAndTableSeats ?? []) as any[];
-        return seats.some(s => s.sid === sid && s.shape?.node instanceof Element);
+        return seats.some(
+          s => s.sid === sid && s.shape?.node instanceof Element && s.shape.node.isConnected,
+        );
       },
       sectionUuid,
       { timeout: WAIT.MEDIUM },
     );
-    await this.page.waitForTimeout(300);
   }
 
-  async pickByStrategy(strategy: SelectionStrategy): Promise<void> {
-    switch (strategy.kind) {
-      case 'seats':          return this.pick(strategy.uuids);
-      case 'first-n':        return this.pickFirstN(strategy.categoryId, strategy.count, strategy.sectionUuid);
-      case 'section':        return this.pickInSection(strategy.sectionUuid, strategy.count);
-      case 'best-available': return this.enterSection(strategy.sectionUuid);
-    }
+  private async sectionViewportPoint(uuid: string | number): Promise<{ x: number; y: number } | null> {
+    const iframeBox = await this.page.locator(this.iframeSelector).first().boundingBox();
+    if (!iframeBox) return null;
+    const f = await this.frame();
+    const inner = await f.evaluate((sid) => {
+      const w = window as any;
+      const section = w.app?.seatmap?.getSectionById?.(sid);
+      const node = section?.shape?.node;
+      if (!(node instanceof Element) || !node.isConnected) return null;
+      const r = (node as Element).getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, uuid);
+    if (!inner) return null;
+    return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
   }
 
   async selection(): Promise<SeatSummary[]> {

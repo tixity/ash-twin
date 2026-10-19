@@ -3,7 +3,7 @@ import { events } from '../../../helpers/presets/event';
 import { requireTestCustomer } from '../../../helpers/tenant';
 import { registeredPaymentKeys } from '../../../payments';
 
-test(71, 'vitality', async ({ customer, resolver, tenant, db, feedback }) => {
+test(71, 'vitality', async ({ customer, resolver, tenant, db, feedback, observer }) => {
   test.setTimeout(180_000);
 
   const creds    = requireTestCustomer(tenant);
@@ -17,7 +17,7 @@ test(71, 'vitality', async ({ customer, resolver, tenant, db, feedback }) => {
 
   await customer.login(creds);
 
-  const order = await customer.buySeatedTicket(event, category, 3, { payment: 'any' });
+  const order = await customer.buyTicket(event, category, 3, { payment: 'any' });
 
   expect(order.orderRef).toBeTruthy();
   expect(order.status).toBe('paid');

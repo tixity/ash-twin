@@ -13,23 +13,24 @@ export interface AddonSeatRow {
 }
 
 export interface SeatSummary {
-  uuid:        string;
+  uuid:        string | number;
   label:       string;
   rowLabel:    string;
   categoryId:  string | number;
-  sectionUuid: string | null;
+  sectionUuid: string | number | null;
   status:      number;
   type:        'row_seat' | 'table_seat';
 }
 
 export interface SeatFilter {
   categoryId?:  string | number;
-  sectionUuid?: string;
+  sectionUuid?: string | number;
   freeOnly?:    boolean;
 }
 
 export interface SectionSummary {
-  uuid:          string;
+  uuid:          string | number;
+  name:          string;
   categoryId:    string | number;
   ga:            boolean;
   bestAvailable: boolean;
@@ -40,27 +41,25 @@ export interface SectionFilter {
 }
 
 export interface SeatQuery {
-  uuid?:     string;
+  uuid?:     string | number;
   rowLabel?: string;
   label?:    string;
 }
 
-export type SelectionStrategy =
-  | { kind: 'seats';           uuids: string[] }
-  | { kind: 'first-n';         categoryId: string | number; count: number; sectionUuid?: string }
-  | { kind: 'section';         sectionUuid: string; count: number }
-  | { kind: 'best-available';  sectionUuid: string; count: number };
+// Outcome of a pickSeats call. Tells the caller what the driver did inside
+// the iframe so the host-page side can finalise the add-to-cart correctly.
+export type PickResult =
+  | { kind: 'seats';   uuids: Array<string | number>; sectionUuid: string | number | null }
+  | { kind: 'section'; sectionUuid: string | number; count: number };
 
 export interface SeatMapDriver {
   waitReady():                                                                              Promise<void>;
+  pickSeats(categoryId: string | number, count: number):                                    Promise<PickResult>;
   list(filter?: SeatFilter):                                                                Promise<SeatSummary[]>;
   listSections(filter?: SectionFilter):                                                     Promise<SectionSummary[]>;
   find(query: SeatQuery):                                                                   Promise<SeatSummary>;
-  pick(uuids: string[]):                                                                    Promise<void>;
-  pickFirstN(categoryId: string | number, count: number, sectionUuid?: string):             Promise<void>;
-  pickInSection(sectionUuid: string, count: number):                                        Promise<void>;
-  enterSection(sectionUuid: string):                                                        Promise<void>;
-  pickByStrategy(strategy: SelectionStrategy):                                              Promise<void>;
+  pick(uuids: Array<string | number>):                                                      Promise<void>;
+  enterSection(sectionUuid: string | number):                                               Promise<void>;
   selection():                                                                              Promise<SeatSummary[]>;
   clearSelection():                                                                         Promise<void>;
 }

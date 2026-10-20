@@ -18,12 +18,16 @@ interface AlgoSeat {
   isFree:      boolean;
 }
 
-// Mirrors squaremaze's Seat::_findConsecutiveSeats + _getSeatsFromSection:
-// group seats by (section, row) then split each row on seat-number jumps > 1
-// (aisles / missing seats). Scan each block for a run of N free seats, reject
-// any run that would orphan a single free seat (wall or occupied neighbour on
-// either side). Fall back to allowing orphans only if nothing is clean. See
-// squaremaze/includes/models/model.seat.php:1023+ for the authoritative rules.
+// Based on squaremaze's Seat::_findConsecutiveSeats + _getSeatsFromSection
+// (model.seat.php:1023+). Group seats by (section, row), split each row on
+// seat-number jumps > 1 (aisles / missing seats), scan each block for a run
+// of N free seats, reject any run that would orphan a single free seat
+// (wall or occupied neighbour on either side).
+//
+// Unlike the SUT which falls back to allowing orphans when no clean group
+// exists, this returns null — tests should fail loudly rather than silently
+// book an orphan-creating selection. The caller iterates to the next section
+// or throws if no section yields a clean pick.
 export function sectionBestAvailable(seats: readonly AlgoSeat[], n: number): Array<string | number> | null {
   if (n <= 0) return [];
   const sorted = [...seats].sort((a, b) => (
@@ -42,16 +46,14 @@ export function sectionBestAvailable(seats: readonly AlgoSeat[], n: number): Arr
   }
   if (current.length) blocks.push(current);
 
-  for (const allowGaps of [false, true]) {
-    for (const block of blocks) {
-      let run: AlgoSeat[] = [];
-      for (let i = 0; i < block.length; i++) {
-        if (!block[i].isFree) { run = []; continue; }
-        run.push(block[i]);
-        if (run.length < n) continue;
-        if (allowGaps || !orphansCreated(block, i, n)) return run.map(s => s.uuid);
-        run = [];
-      }
+  for (const block of blocks) {
+    let run: AlgoSeat[] = [];
+    for (let i = 0; i < block.length; i++) {
+      if (!block[i].isFree) { run = []; continue; }
+      run.push(block[i]);
+      if (run.length < n) continue;
+      if (!orphansCreated(block, i, n)) return run.map(s => s.uuid);
+      run = [];
     }
   }
   return null;
@@ -152,19 +154,29 @@ export class LegacyDriver implements SeatMapDriver {
       await this.enterSection(sid);
     }
 
+    const isSelected = (uuid: string | number) => f.evaluate((id) => {
+      const w = window as any;
+      return ((w.app?.seatmap?.selection?.items ?? []) as any[]).some(s => s.uuid === id);
+    }, uuid);
+
     const notFound: Array<string | number> = [];
+    const notSelected: Array<string | number> = [];
     for (const uuid of uuids) {
-      const target = await this.seatViewportPoint(uuid);
-      if (!target) { notFound.push(uuid); continue; }
-      await this.page.mouse.move(target.x, target.y);
-      await this.page.mouse.click(target.x, target.y);
+      let clicked = false;
+      for (let attempt = 0; attempt < 3 && !clicked; attempt++) {
+        const target = await this.seatViewportPoint(uuid);
+        if (!target) break;
+        await this.page.mouse.move(target.x, target.y);
+        await this.page.mouse.click(target.x, target.y);
+        if (await isSelected(uuid)) { clicked = true; break; }
+        await this.page.waitForTimeout(200);
+      }
+      if (!clicked) {
+        const target = await this.seatViewportPoint(uuid);
+        if (!target) notFound.push(uuid); else notSelected.push(uuid);
+      }
     }
 
-    const selected = await f.evaluate(() => {
-      const w = window as any;
-      return ((w.app?.seatmap?.selection?.items ?? []) as any[]).map(s => s.uuid);
-    });
-    const notSelected = uuids.filter(u => !notFound.includes(u) && !selected.includes(u));
     if (notFound.length > 0)    throw new Error(`seatmap.pick: seats not on map: ${notFound.join(', ')}`);
     if (notSelected.length > 0) throw new Error(`seatmap.pick: renderer refused selection: ${notSelected.join(', ')}`);
   }
@@ -192,7 +204,15 @@ export class LegacyDriver implements SeatMapDriver {
     const sections = await this.listSections({ categoryId });
 
     if (sections.length === 0) {
-      throw new Error(`seatmap.pickSeats: category ${categoryId} has no sections — flat-mode pickSeats not yet implemented`);
+      const pool = await this.candidatesFor({ categoryId });
+      const free = pool.filter(s => s.isFree).length;
+      if (free < count) {
+        throw new Error(`seatmap.pickSeats: only ${free} free seats in category ${categoryId}, needed ${count}`);
+      }
+      const uuids = sectionBestAvailable(pool, count);
+      if (!uuids) throw new Error(`seatmap.pickSeats: no run of ${count} seats found in category ${categoryId} (algo exhausted both passes)`);
+      await this.pick(uuids);
+      return { kind: 'seats', uuids, sectionUuid: null };
     }
 
     const specialSection = sections.find(s => s.ga || s.bestAvailable);

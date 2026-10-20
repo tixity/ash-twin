@@ -72,7 +72,7 @@ export default defineConfig({
     {
       name: 'blublood-staging',
       testDir: './specs',
-      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts', 'pentest/*.spec.ts', 'pentest/blublood/**/*.spec.ts'],
+      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts', 'payments/**/peach.spec.ts', 'pentest/*.spec.ts', 'pentest/blublood/**/*.spec.ts'],
       metadata: { tenant: 'blublood', env: 'staging' },
     },
   ],

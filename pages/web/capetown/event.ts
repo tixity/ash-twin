@@ -140,13 +140,13 @@ export class CapetownEventPage extends BasePage {
     if ((await modalConfirm.count()) > 0 && await modalConfirm.isVisible()) {
       await modalConfirm.click();
       await modalConfirm.waitFor({ state: 'detached', timeout: WAIT.MEDIUM });
-      const miniCart = this.page.locator(`#li_${categoryId} .mini_add_to_cart`);
-      await miniCart.waitFor({ state: 'attached', timeout: WAIT.MEDIUM });
-      await miniCart.evaluate((el) => el.removeAttribute('disabled'));
-      await miniCart.click();
-    } else {
-      await this.page.locator('#add_to_cart_btn').click();
     }
+    const add = this.page.locator(
+      `#li_${categoryId} .btn-add-cart, #li_${categoryId} .mini_add_to_cart`,
+    ).first();
+    await add.waitFor({ state: 'attached', timeout: WAIT.MEDIUM });
+    await add.evaluate((el) => el.removeAttribute('disabled')).catch(() => {});
+    await add.click();
     await this.isVisibleSoon(this.checkoutButton);
   }
 }

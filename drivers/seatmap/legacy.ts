@@ -10,13 +10,8 @@ import type {
   SectionSummary,
 } from '../../types/seat';
 
-interface AlgoSeat {
-  uuid:        string | number;
-  sectionUuid: string | number | null;
-  rowLabel:    string;
-  number:      number;
-  isFree:      boolean;
-}
+const seatNumber = (s: SeatSummary): number => parseInt(String(s.label ?? ''), 10) || 0;
+const seatIsFree = (s: SeatSummary | undefined): boolean => s?.status === 0;
 
 // Based on squaremaze's Seat::_findConsecutiveSeats + _getSeatsFromSection
 // (model.seat.php:1023+). Group seats by (section, row), split each row on
@@ -28,28 +23,28 @@ interface AlgoSeat {
 // exists, this returns null — tests should fail loudly rather than silently
 // book an orphan-creating selection. The caller iterates to the next section
 // or throws if no section yields a clean pick.
-export function sectionBestAvailable(seats: readonly AlgoSeat[], n: number): Array<string | number> | null {
+export function sectionBestAvailable(seats: readonly SeatSummary[], n: number): Array<string | number> | null {
   if (n <= 0) return [];
   const sorted = [...seats].sort((a, b) => (
     String(a.sectionUuid ?? '').localeCompare(String(b.sectionUuid ?? '')) ||
-    String(a.rowLabel).length - String(b.rowLabel).length ||
-    String(a.rowLabel).localeCompare(String(b.rowLabel)) ||
-    a.number - b.number
+    a.rowLabel.length - b.rowLabel.length ||
+    a.rowLabel.localeCompare(b.rowLabel) ||
+    seatNumber(a) - seatNumber(b)
   ));
-  const blocks: AlgoSeat[][] = [];
-  let current: AlgoSeat[] = [];
+  const blocks: SeatSummary[][] = [];
+  let current: SeatSummary[] = [];
   for (const s of sorted) {
     const last = current[current.length - 1];
-    const sameBlock = last && last.sectionUuid === s.sectionUuid && last.rowLabel === s.rowLabel && s.number - last.number === 1;
+    const sameBlock = last && last.sectionUuid === s.sectionUuid && last.rowLabel === s.rowLabel && seatNumber(s) - seatNumber(last) === 1;
     if (!sameBlock && current.length) { blocks.push(current); current = []; }
     current.push(s);
   }
   if (current.length) blocks.push(current);
 
   for (const block of blocks) {
-    let run: AlgoSeat[] = [];
+    let run: SeatSummary[] = [];
     for (let i = 0; i < block.length; i++) {
-      if (!block[i].isFree) { run = []; continue; }
+      if (!seatIsFree(block[i])) { run = []; continue; }
       run.push(block[i]);
       if (run.length < n) continue;
       if (!orphansCreated(block, i, n)) return run.map(s => s.uuid);
@@ -59,14 +54,14 @@ export function sectionBestAvailable(seats: readonly AlgoSeat[], n: number): Arr
   return null;
 }
 
-function orphansCreated(block: readonly AlgoSeat[], iEnd: number, n: number): boolean {
+function orphansCreated(block: readonly SeatSummary[], iEnd: number, n: number): boolean {
   const iStart = iEnd - n + 1;
   const r1 = block[iEnd + 1], r2 = block[iEnd + 2];
-  if (r1?.isFree && r2 === undefined)   return true;
-  if (r1?.isFree && r2 && !r2.isFree)   return true;
+  if (seatIsFree(r1) && r2 === undefined)   return true;
+  if (seatIsFree(r1) && r2 && !seatIsFree(r2))  return true;
   const l1 = block[iStart - 1], l2 = block[iStart - 2];
-  if (l1?.isFree && l2 && !l2.isFree)   return true;
-  if (l1?.isFree && iStart - 1 >= 0 && l2 === undefined) return true;
+  if (seatIsFree(l1) && l2 && !seatIsFree(l2))  return true;
+  if (seatIsFree(l1) && iStart - 1 >= 0 && l2 === undefined) return true;
   return false;
 }
 
@@ -204,8 +199,8 @@ export class LegacyDriver implements SeatMapDriver {
     const sections = await this.listSections({ categoryId });
 
     if (sections.length === 0) {
-      const pool = await this.candidatesFor({ categoryId });
-      const free = pool.filter(s => s.isFree).length;
+      const pool = await this.list({ categoryId });
+      const free = pool.filter(seatIsFree).length;
       if (free < count) {
         throw new Error(`seatmap.pickSeats: only ${free} free seats in category ${categoryId}, needed ${count}`);
       }
@@ -222,8 +217,8 @@ export class LegacyDriver implements SeatMapDriver {
       throw new Error(`seatmap.pickSeats: category ${categoryId} is GA / best-available — not yet implemented`);
     }
 
-    const pool = await this.candidatesFor({ categoryId });
-    const bySection = new Map<string | number, AlgoSeat[]>();
+    const pool = await this.list({ categoryId });
+    const bySection = new Map<string | number, SeatSummary[]>();
     for (const seat of pool) {
       const key = seat.sectionUuid;
       if (key == null) continue;
@@ -238,7 +233,7 @@ export class LegacyDriver implements SeatMapDriver {
 
     for (const section of ordered) {
       const sectionPool = bySection.get(section.uuid) ?? [];
-      if (sectionPool.filter(s => s.isFree).length < count) continue;
+      if (sectionPool.filter(seatIsFree).length < count) continue;
       const uuids = sectionBestAvailable(sectionPool, count);
       if (!uuids) continue;
       await this.enterSection(section.uuid);
@@ -247,25 +242,6 @@ export class LegacyDriver implements SeatMapDriver {
     }
 
     throw new Error(`seatmap.pickSeats: no section carries ${count} suitable seats for category ${categoryId}`);
-  }
-
-  private async candidatesFor(filter: { categoryId?: string | number; sectionUuid?: string | number }): Promise<AlgoSeat[]> {
-    const f = await this.frame();
-    return f.evaluate((flt) => {
-      const w = window as any;
-      const seats = (w.app?.seatmap?.seatsAndTableSeats ?? []) as any[];
-      const sidOf = (s: any) => s?.sid ?? s?.section?.uuid ?? null;
-      return seats
-        .filter(s => !flt?.categoryId  || String(s.attributes?.categoryId) === String(flt.categoryId))
-        .filter(s => !flt?.sectionUuid || sidOf(s) === flt.sectionUuid)
-        .map(s => ({
-          uuid:        s.uuid,
-          sectionUuid: sidOf(s),
-          rowLabel:    (s.type === 'table_seat' ? s.table?.attributes?.label : s.row?.attributes?.label) ?? '',
-          number:      parseInt(String(s.attributes?.label ?? ''), 10) || 0,
-          isFree:      s.attributes?.status === 0,
-        }));
-    }, filter) as Promise<AlgoSeat[]>;
   }
 
   async enterSection(sectionUuid: string | number): Promise<void> {

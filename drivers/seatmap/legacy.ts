@@ -13,16 +13,7 @@ import type {
 const seatNumber = (s: SeatSummary): number => parseInt(String(s.label ?? ''), 10) || 0;
 const seatIsFree = (s: SeatSummary | undefined): boolean => s?.status === 0;
 
-// Based on squaremaze's Seat::_findConsecutiveSeats + _getSeatsFromSection
-// (model.seat.php:1023+). Group seats by (section, row), split each row on
-// seat-number jumps > 1 (aisles / missing seats), scan each block for a run
-// of N free seats, reject any run that would orphan a single free seat
-// (wall or occupied neighbour on either side).
-//
-// Unlike the SUT which falls back to allowing orphans when no clean group
-// exists, this returns null — tests should fail loudly rather than silently
-// book an orphan-creating selection. The caller iterates to the next section
-// or throws if no section yields a clean pick.
+
 export function sectionBestAvailable(seats: readonly SeatSummary[], n: number): Array<string | number> | null {
   if (n <= 0) return [];
   const sorted = [...seats].sort((a, b) => (
@@ -47,22 +38,21 @@ export function sectionBestAvailable(seats: readonly SeatSummary[], n: number): 
       if (!seatIsFree(block[i])) { run = []; continue; }
       run.push(block[i]);
       if (run.length < n) continue;
-      if (!orphansCreated(block, i, n)) return run.map(s => s.uuid);
+      // Reject the run if accepting it would strand a single free seat:
+      // right-of-run or left-of-run, trapped against a wall or occupied seat.
+      const iStart = i - n + 1;
+      const r1 = block[i + 1],      r2 = block[i + 2];
+      const l1 = block[iStart - 1], l2 = block[iStart - 2];
+      const orphan =
+        (seatIsFree(r1) && r2 === undefined)                     ||
+        (seatIsFree(r1) && r2 && !seatIsFree(r2))                ||
+        (seatIsFree(l1) && l2 && !seatIsFree(l2))                ||
+        (seatIsFree(l1) && iStart - 1 >= 0 && l2 === undefined);
+      if (!orphan) return run.map(s => s.uuid);
       run = [];
     }
   }
   return null;
-}
-
-function orphansCreated(block: readonly SeatSummary[], iEnd: number, n: number): boolean {
-  const iStart = iEnd - n + 1;
-  const r1 = block[iEnd + 1], r2 = block[iEnd + 2];
-  if (seatIsFree(r1) && r2 === undefined)   return true;
-  if (seatIsFree(r1) && r2 && !seatIsFree(r2))  return true;
-  const l1 = block[iStart - 1], l2 = block[iStart - 2];
-  if (seatIsFree(l1) && l2 && !seatIsFree(l2))  return true;
-  if (seatIsFree(l1) && iStart - 1 >= 0 && l2 === undefined) return true;
-  return false;
 }
 
 export class LegacyDriver implements SeatMapDriver {

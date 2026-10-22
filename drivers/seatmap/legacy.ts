@@ -56,11 +56,12 @@ export function sectionBestAvailable(seats: readonly SeatSummary[], n: number): 
 }
 
 export class LegacyDriver implements SeatMapDriver {
-  // Inline (#seatmapframe) for pm_load=1/2, modal (.fancybox-iframe) for pm_load=0.
+  // Side-by-side (#seatmapframe) for pm_load=1/2, pop-up (.fancybox-iframe) for pm_load=0.
   private readonly iframeSelector = '#seatmapframe, .fancybox-iframe';
 
   constructor(private readonly page: Page) {}
 
+  // Wait until iframe loads
   async waitReady(): Promise<void> {
     const f = await this.frame();
     await f.waitForFunction(
@@ -73,15 +74,24 @@ export class LegacyDriver implements SeatMapDriver {
     );
   }
 
+  // List all seats matching the filter
   async list(filter?: SeatFilter): Promise<SeatSummary[]> {
     const f = await this.frame();
     return f.evaluate((flt) => {
       const w = window as any;
+      
+      // Store all seats in array 
       const seats: any[] = w.app?.seatmap?.seatsAndTableSeats ?? [];
+
+      // Return section id, or null (flat mode)
       const sidOf = (s: any) => s?.sid ?? s?.section?.uuid ?? null;
+      
       return seats
+        // no categoryid passed in filters, include all.
         .filter(s => !flt?.categoryId  || String(s.attributes?.categoryId) === String(flt.categoryId))
+        // no sectionuuid passed in filters, include all.
         .filter(s => !flt?.sectionUuid || sidOf(s) === flt.sectionUuid)
+        // no freeOnly passed in filters, include all.
         .filter(s => !flt?.freeOnly    || s.attributes?.status === 0)
         .map(s => ({
           uuid:        s.uuid,
@@ -95,6 +105,7 @@ export class LegacyDriver implements SeatMapDriver {
     }, filter) as Promise<SeatSummary[]>;
   }
 
+  // List all sections matching the filter
   async listSections(filter?: SectionFilter): Promise<SectionSummary[]> {
     const f = await this.frame();
     return f.evaluate((flt) => {
@@ -112,6 +123,7 @@ export class LegacyDriver implements SeatMapDriver {
     }, filter) as Promise<SectionSummary[]>;
   }
 
+  // Find a seat matching the query (uuid, rowLabel, label)
   async find(query: SeatQuery): Promise<SeatSummary> {
     const all = await this.list();
     const match = all.find(s =>
@@ -123,6 +135,7 @@ export class LegacyDriver implements SeatMapDriver {
     return match;
   }
 
+  // Pick seats by their UUIDs
   async pick(uuids: Array<string | number>): Promise<void> {
     if (uuids.length === 0) return;
     const f = await this.frame();
@@ -166,6 +179,7 @@ export class LegacyDriver implements SeatMapDriver {
     if (notSelected.length > 0) throw new Error(`seatmap.pick: renderer refused selection: ${notSelected.join(', ')}`);
   }
 
+  // Get the viewport position of a seat
   private async seatViewportPoint(uuid: string | number): Promise<{ x: number; y: number } | null> {
     const iframeBox = await this.page.locator(this.iframeSelector).first().boundingBox();
     if (!iframeBox) return null;
@@ -182,9 +196,7 @@ export class LegacyDriver implements SeatMapDriver {
     return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
   }
 
-  // Single entry point. Reads the map, routes to the right pick strategy based
-  // on what the renderer actually loaded, then returns a PickResult the caller
-  // uses to drive the correct host-page finalisation (confirm vs. qty + addToCart).
+  // Pick seats by their UUIDs, delegate to the pick method
   async pickSeats(categoryId: string | number, count: number): Promise<PickResult> {
     const sections = await this.listSections({ categoryId });
 
@@ -278,6 +290,7 @@ export class LegacyDriver implements SeatMapDriver {
     return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
   }
 
+  // Get the current seat selection
   async selection(): Promise<SeatSummary[]> {
     const f = await this.frame();
     return f.evaluate(() => {
@@ -310,6 +323,7 @@ export class LegacyDriver implements SeatMapDriver {
     }, current.map(s => s.uuid));
   }
 
+  // Return iframe content
   private async frame(): Promise<Frame> {
     const iframe = this.page.locator(this.iframeSelector).first();
     await iframe.waitFor({ state: 'attached', timeout: WAIT.MEDIUM });

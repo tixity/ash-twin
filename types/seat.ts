@@ -47,7 +47,6 @@ export interface SeatQuery {
 }
 
 // Outcome of a pickSeats call. Tells the caller what the driver did inside
-// the iframe so the host-page side can finalise the add-to-cart correctly.
 export type PickResult =
   | { kind: 'seats';   uuids: Array<string | number>; sectionUuid: string | number | null }
   | { kind: 'section'; sectionUuid: string | number; count: number };

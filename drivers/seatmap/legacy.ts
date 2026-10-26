@@ -179,23 +179,6 @@ export class LegacyDriver implements SeatMapDriver {
     if (notSelected.length > 0) throw new Error(`seatmap.pick: renderer refused selection: ${notSelected.join(', ')}`);
   }
 
-  // Get the viewport position of a seat
-  private async seatViewportPoint(uuid: string | number): Promise<{ x: number; y: number } | null> {
-    const iframeBox = await this.page.locator(this.iframeSelector).first().boundingBox();
-    if (!iframeBox) return null;
-    const f = await this.frame();
-    const inner = await f.evaluate((id) => {
-      const w = window as any;
-      const seat = w.app?.seatmap?.seatsAndTableSeats?.find((s: any) => s.uuid === id);
-      const node = seat?.shape?.node;
-      if (!(node instanceof Element) || !node.isConnected) return null;
-      const r = (node as Element).getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    }, uuid);
-    if (!inner) return null;
-    return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
-  }
-
   // Pick seats by their UUIDs, delegate to the pick method
   async pickSeats(categoryId: string | number, count: number): Promise<PickResult> {
     const sections = await this.listSections({ categoryId });
@@ -229,8 +212,7 @@ export class LegacyDriver implements SeatMapDriver {
       bySection.set(key, bucket);
     }
 
-    // Match squaremaze's section-name ordering so test picks are deterministic
-    // and align with what the SUT would hand a real best-available buyer.
+    // Sort sections by name to ensure deterministic selection order
     const ordered = [...regularSections].sort((a, b) => a.name.localeCompare(b.name));
 
     for (const section of ordered) {
@@ -246,12 +228,12 @@ export class LegacyDriver implements SeatMapDriver {
     throw new Error(`seatmap.pickSeats: no section carries ${count} suitable seats for category ${categoryId}`);
   }
 
+  // Enter a section by its UUID
   async enterSection(sectionUuid: string | number): Promise<void> {
     const target = await this.sectionViewportPoint(sectionUuid);
     if (!target) throw new Error(`seatmap: no section for ${sectionUuid}`);
-    // Cursor goes to the section (visible), then click dispatches on the shape
-    // node. SVG `on('click', ...)` handlers fire on the dispatched event; the
-    // renderer's section-click body calls `zoomAndCenterBox` and reveals seats.
+
+    // Cursor goes to the section (visible), then click on the section
     await this.page.mouse.move(target.x, target.y);
     const f = await this.frame();
     await f.evaluate((sid) => {
@@ -274,6 +256,7 @@ export class LegacyDriver implements SeatMapDriver {
     );
   }
 
+  // Get the viewport position of a section
   private async sectionViewportPoint(uuid: string | number): Promise<{ x: number; y: number } | null> {
     const iframeBox = await this.page.locator(this.iframeSelector).first().boundingBox();
     if (!iframeBox) return null;
@@ -288,6 +271,33 @@ export class LegacyDriver implements SeatMapDriver {
     }, uuid);
     if (!inner) return null;
     return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
+  }
+
+  // Get the viewport position of a seat
+  private async seatViewportPoint(uuid: string | number): Promise<{ x: number; y: number } | null> {
+    const iframeBox = await this.page.locator(this.iframeSelector).first().boundingBox();
+    if (!iframeBox) return null;
+    const f = await this.frame();
+    const inner = await f.evaluate((id) => {
+      const w = window as any;
+      const seat = w.app?.seatmap?.seatsAndTableSeats?.find((s: any) => s.uuid === id);
+      const node = seat?.shape?.node;
+      if (!(node instanceof Element) || !node.isConnected) return null;
+      const r = (node as Element).getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, uuid);
+    if (!inner) return null;
+    return { x: iframeBox.x + inner.x, y: iframeBox.y + inner.y };
+  }
+
+  // Return iframe content
+  private async frame(): Promise<Frame> {
+    const iframe = this.page.locator(this.iframeSelector).first();
+    await iframe.waitFor({ state: 'attached', timeout: WAIT.MEDIUM });
+    const handle = await iframe.elementHandle();
+    const frame  = await handle?.contentFrame();
+    if (!frame) throw new Error(`seatmap: iframe has no contentFrame`);
+    return frame;
   }
 
   // Get the current seat selection
@@ -321,15 +331,5 @@ export class LegacyDriver implements SeatMapDriver {
         w.appConfig?.rendererdata?.onSeatDeselect?.(seat);
       }
     }, current.map(s => s.uuid));
-  }
-
-  // Return iframe content
-  private async frame(): Promise<Frame> {
-    const iframe = this.page.locator(this.iframeSelector).first();
-    await iframe.waitFor({ state: 'attached', timeout: WAIT.MEDIUM });
-    const handle = await iframe.elementHandle();
-    const frame  = await handle?.contentFrame();
-    if (!frame) throw new Error(`seatmap: iframe has no contentFrame`);
-    return frame;
   }
 }

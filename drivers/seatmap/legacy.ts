@@ -195,11 +195,14 @@ export class LegacyDriver implements SeatMapDriver {
       return { kind: 'seats', uuids, sectionUuid: null };
     }
 
-    const specialSection = sections.find(s => s.ga || s.bestAvailable);
+    const specialSections = sections.filter(s =>  s.ga || s.bestAvailable);
     const regularSections = sections.filter(s => !s.ga && !s.bestAvailable);
 
-    if (regularSections.length === 0 && specialSection) {
-      throw new Error(`seatmap.pickSeats: category ${categoryId} is GA / best-available — not yet implemented`);
+    // If no regular sections exist, pick the first special section (sorted by name) and enter it
+    if (regularSections.length === 0 && specialSections.length > 0) {
+      const chosen = [...specialSections].sort((a, b) => a.name.localeCompare(b.name))[0];
+      await this.enterSection(chosen.uuid);
+      return { kind: 'section', sectionUuid: chosen.uuid, count };
     }
 
     const pool = await this.list({ categoryId });

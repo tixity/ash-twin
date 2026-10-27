@@ -7,6 +7,8 @@ import type { EventSelector, CategorySelector, AddonSelector } from '../types/se
 import { registeredShipmentKeys } from '../shipments';
 import { EventFactory } from '../factories/event';
 import { CategoryFactory } from '../factories/category';
+import { AddonFactory } from '../factories/addon';
+import type { AddonFactoryInput } from '../factories/addon';
 import { createDiscount } from '../factories/discount';
 
 
@@ -25,10 +27,12 @@ function repFromDb(v: string | null | undefined): EventRep | undefined {
 export class Resolver {
   private eventFactory:    EventFactory;
   private categoryFactory: CategoryFactory;
+  private addonFactory:    AddonFactory;
 
   constructor(private db: DbClient) {
     this.eventFactory    = new EventFactory(db);
     this.categoryFactory = new CategoryFactory(db);
+    this.addonFactory    = new AddonFactory(db);
   }
 
   // ── Events ──────────────────────────────────────────────────────────────
@@ -461,8 +465,15 @@ export class Resolver {
     } else if (typeof selector === 'object' && 'id' in selector && 'name' in selector) {
       row = await this.queryAddon('e.event_id = ?', [selector.id]);
     } else if (typeof selector === 'object') {
-      const { where, params } = this.buildAddonCriteriaWhere(selector as AddonCriteria);
+      const criteria = selector as AddonCriteria;
+      const { where, params } = this.buildAddonCriteriaWhere(criteria);
       row = await this.queryAddon(where || '1=1', params);
+      if (!row && criteria.eventId !== undefined) {
+        const built = await this.addonFactory.build(criteria.eventId, selector as AddonFactoryInput);
+        const fresh = await this.queryAddon('e.event_id = ?', [built.addonId]);
+        if (!fresh) throw new Error(`Addon ${built.addonId} vanished immediately after insert`);
+        return this.hydrateAddonRow(fresh);
+      }
     } else {
       throw new Error(`Unrecognized addon selector: ${JSON.stringify(selector)}`);
     }

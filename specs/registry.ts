@@ -85,4 +85,7 @@ export const registry: RegistryEntry[] = [
   { id: 72, title: 'active discount applies to a GA cart' },
   { id: 73, title: 'expired discount does not apply to a GA cart' },
   { id: 74, title: 'pending (not-yet-started) discount does not apply to a GA cart' },
+
+  //  profile edit
+  { id: 75, title: 'authenticated member saves profile details change' },
 ];

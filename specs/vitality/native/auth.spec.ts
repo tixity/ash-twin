@@ -188,6 +188,31 @@ test(25, "vitality", async ({ customer, tenant, feedback }) => {
   feedback(`user ${creds.username} logged out`);
 });
 
+// ── Edit profile ────────────────────────────────────────────────────────
+
+test(75, "vitality", async ({ customer, tenant, db, feedback }) => {
+  const creds    = requireTestCustomer(tenant);
+  const baseline = await db.userFirstname(creds.username);
+  const probe    = `ash-firstname-${Date.now()}`;
+
+  try {
+    await customer.login(creds);
+    expect(await customer.isSignedIn()).toBe(true);
+
+    const edit = customer.pages.editProfile;
+    await edit.open();
+    await edit.fillFirstname(probe);
+    await edit.submitDetails();
+
+    expect(await db.userFirstname(creds.username)).toBe(probe);
+    await expect(customer.page.getByText(probe, { exact: true }).first()).toBeVisible();
+
+    feedback(`✓ profile-save: ${creds.username} firstname updated to "${probe}"`);
+  } finally {
+    if (baseline !== null) await db.setUserFirstname(creds.username, baseline);
+  }
+});
+
 test(26, "vitality", async ({ customer, resolver, tenant, feedback }) => {
   const creds    = requireTestCustomer(tenant);
   const event    = await resolver.event(events.normal);

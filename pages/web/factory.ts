@@ -8,6 +8,7 @@ import { DefaultCheckoutProductsPage } from './default/checkout_products';
 import { DefaultCheckoutPage } from './default/checkout';
 import { DefaultConfirmationPage } from './default/confirmation';
 import { DefaultAuthPage } from './default/auth';
+import { DefaultEditProfilePage } from './default/edit_profile';
 import { CapetownLandingPage } from './capetown/landing';
 import { CapetownEventPage } from './capetown/event';
 import { CapetownEventDatesPage } from './capetown/event_dates';
@@ -15,6 +16,7 @@ import { CapetownCheckoutProductsPage } from './capetown/checkout_products';
 import { CapetownCheckoutPage } from './capetown/checkout';
 import { CapetownConfirmationPage } from './capetown/confirmation';
 import { CapetownAuthPage } from './capetown/auth';
+import { CapetownEditProfilePage } from './capetown/edit_profile';
 import { seatMapFor } from '../../drivers/seatmap';
 
 
@@ -36,6 +38,7 @@ function defaultPages(page: Page): WebPages {
     checkout:         new DefaultCheckoutPage(page),
     confirmation:     new DefaultConfirmationPage(page),
     auth:             new DefaultAuthPage(page),
+    editProfile:      new DefaultEditProfilePage(page),
     seatmap:          seatMapFor(page),
   };
 }
@@ -49,6 +52,7 @@ function capetownPages(page: Page, _tenant: TenantConfig): WebPages {
     checkout:         new CapetownCheckoutPage(page),
     confirmation:     new CapetownConfirmationPage(page),
     auth:             new CapetownAuthPage(page),
+    editProfile:      new CapetownEditProfilePage(page),
     seatmap:          seatMapFor(page),
   };
 }

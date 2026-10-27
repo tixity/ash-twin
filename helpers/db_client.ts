@@ -255,6 +255,26 @@ export class DbClient {
     return row?.seat_discount_id ?? null;
   }
 
+  async userId(email: string): Promise<number | null> {
+    const row = await this.one<{ user_id: number }>(
+      'SELECT user_id FROM user WHERE user_email = ? LIMIT 1',
+      [email],
+    );
+    return row?.user_id ?? null;
+  }
+
+  async userFirstname(email: string): Promise<string | null> {
+    const row = await this.one<{ user_firstname: string | null }>(
+      'SELECT user_firstname FROM user WHERE user_email = ? LIMIT 1',
+      [email],
+    );
+    return row?.user_firstname ?? null;
+  }
+
+  async setUserFirstname(email: string, value: string): Promise<void> {
+    await this.execute('UPDATE user SET user_firstname = ? WHERE user_email = ?', [value, email]);
+  }
+
   async userMaillist(email: string): Promise<number | null> {
     const row = await this.one<{ user_maillist: number }>(
       'SELECT user_maillist FROM user WHERE user_email = ? LIMIT 1',

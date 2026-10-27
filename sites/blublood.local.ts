@@ -6,8 +6,8 @@ export default {
   env:   'local',
   theme: 'capetown',
 
-  baseUrl: 'https://blublood',
-  webUrl:  'https://blublood',
+  baseUrl: 'https://cca.local/',
+  webUrl:  'https://cca.local/',
 
   users: {
     superadmin:   { username: req('BLUBLOOD_LOCAL_SUPERADMIN_USER'),   password: req('BLUBLOOD_LOCAL_SUPERADMIN_PASSWORD') },

@@ -6,8 +6,8 @@ export default {
   env:   'local',
   theme: 'default',
 
-  baseUrl: 'https://cca',
-  webUrl:  'https://cca',
+  baseUrl: 'https://cca.local/',
+  webUrl:  'https://cca.local/',
 
   users: {
     superadmin:   { username: req('CCA_LOCAL_SUPERADMIN_USER'),   password: req('CCA_LOCAL_SUPERADMIN_PASSWORD') },

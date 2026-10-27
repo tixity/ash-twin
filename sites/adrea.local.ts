@@ -6,8 +6,8 @@ export default {
   env:   'local',
   theme: 'capetown',
 
-  baseUrl: 'https://adrea',
-  webUrl:  'https://adrea',
+  baseUrl: 'https://cca.local/',
+  webUrl:  'https://cca.local/',
 
   users: {
     superadmin:   { username: req('ADREA_LOCAL_SUPERADMIN_USER'),   password: req('ADREA_LOCAL_SUPERADMIN_PASSWORD') },

@@ -6,8 +6,8 @@ export default {
   env:   'local',
   theme: 'capetown',
 
-  baseUrl: 'https://theagenda',
-  webUrl:  'https://theagenda',
+  baseUrl: 'https://cca.local/',
+  webUrl:  'https://cca.local/',
 
   users: {
     superadmin:   { username: req('THEAGENDA_LOCAL_SUPERADMIN_USER'),   password: req('THEAGENDA_LOCAL_SUPERADMIN_PASSWORD') },

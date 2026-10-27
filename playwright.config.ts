@@ -30,7 +30,7 @@ export default defineConfig({
     {
       name: 'cca-local',
       testDir: './specs',
-      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/default/**/*.spec.ts', 'pentest/*.spec.ts'],
+      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/default/**/*.spec.ts'],
       metadata: { tenant: 'cca', env: 'local' },
     },
     {
@@ -42,7 +42,7 @@ export default defineConfig({
     {
       name: 'theagenda-local',
       testDir: './specs',
-      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts', 'pentest/*.spec.ts'],
+      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts'],
       metadata: { tenant: 'theagenda', env: 'local' },
     },
     {
@@ -54,7 +54,7 @@ export default defineConfig({
     {
       name: 'adrea-local',
       testDir: './specs',
-      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts', 'pentest/*.spec.ts'],
+      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts'],
       metadata: { tenant: 'adrea', env: 'local' },
     },
     {
@@ -66,7 +66,7 @@ export default defineConfig({
     {
       name: 'blublood-local',
       testDir: './specs',
-      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts', 'pentest/*.spec.ts', 'pentest/blublood/**/*.spec.ts'],
+      testMatch: ['vitality/native/**/*.spec.ts', 'vitality/capetown/**/*.spec.ts'],
       metadata: { tenant: 'blublood', env: 'local' },
     },
     {

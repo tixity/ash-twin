@@ -213,6 +213,130 @@ test(75, "vitality", async ({ customer, tenant, db, feedback }) => {
   }
 });
 
+// ── Edit profile: password change ────────────────────────────────────────
+test(76, "vitality", async ({ customer, tenant, db, feedback }) => {
+  const creds        = requireTestCustomer(tenant);
+  const baselineHash = await db.userPasswordHash(creds.username);
+  const newPassword  = `AshTwinPwd${Date.now()}`;
+
+  try {
+    await customer.login(creds);
+    expect(await customer.isSignedIn()).toBe(true);
+
+    const edit = customer.pages.editProfile;
+    await edit.openPasswordMode();
+    await edit.fillPasswordChange(creds.password, newPassword);
+    await edit.submitPasswordChange();
+
+    await customer.logout();
+    expect(await customer.isSignedIn()).toBe(false);
+
+    await customer.login({ username: creds.username, password: newPassword });
+    expect(await customer.isSignedIn()).toBe(true);
+
+    feedback(`✓ password-change: ${creds.username} re-logged in with the new password`);
+  } finally {
+    if (baselineHash !== null) await db.setUserPasswordHash(creds.username, baselineHash);
+  }
+});
+
+test(77, "vitality", async ({ customer, tenant }) => {
+  await customer.login(requireTestCustomer(tenant));
+  const edit = customer.pages.editProfile;
+  await edit.open();
+  expect(await edit.readTokenKey()).toMatch(/^___userupdate_/);
+});
+
+// Full-form scrape so a server rejection can only be CSRF, not a missing field.
+// Pre-fix cca-staging would accept a well-formed POST without the token and mutate
+// user_firstname; post-fix the server bounces it and firstname stays at baseline.
+
+test(78, "vitality", async ({ customer, customerPage, tenant, db, feedback }) => {
+  const creds    = requireTestCustomer(tenant);
+  const baseline = await db.userFirstname(creds.username);
+  const probe    = `ash-csrf-tokenless-${Date.now()}`;
+
+  try {
+    await customer.login(creds);
+    const edit = customer.pages.editProfile;
+    await edit.open();
+
+    const formData = await edit.readFormData();
+    const tokenKey = await edit.readTokenKey();
+    if (tokenKey) delete formData[tokenKey];              // the forged POST drops the token
+    formData.user_firstname = probe;
+
+    await customerPage.request.post('/', { form: formData });
+    expect(await db.userFirstname(creds.username)).toBe(baseline);
+
+    feedback(`✓ csrf-tokenless: POST without ___userupdate left firstname at "${baseline}"`);
+  } finally {
+    if (baseline !== null) await db.setUserFirstname(creds.username, baseline);
+  }
+});
+
+test(79, "vitality", async ({ customer, customerPage, tenant, db, feedback }) => {
+  const creds    = requireTestCustomer(tenant);
+  const baseline = await db.userFirstname(creds.username);
+  const probe    = `ash-csrf-tampered-${Date.now()}`;
+
+  try {
+    await customer.login(creds);
+    const edit = customer.pages.editProfile;
+    await edit.open();
+
+    const formData = await edit.readFormData();
+    const tokenKey = await edit.readTokenKey();
+    expect(tokenKey, 'DEV-4128 must be deployed for TC-79 to be meaningful').not.toBeNull();
+
+    // getFormToken() returns `base_convert(md5(...), 16, 36)` — base36 chars (0-9, a-z),
+    // so a hex-only regex misses the real suffix. Match the whole suffix after `_<formname>_`.
+    const tamperedKey = tokenKey!.replace(/^(___[a-z]+_).*$/, '$1xxxxxxxxxxxx');
+    delete formData[tokenKey!];
+    formData[tamperedKey]   = '1';
+    formData.user_firstname = probe;
+
+    await customerPage.request.post('/', { form: formData });
+    expect(await db.userFirstname(creds.username)).toBe(baseline);
+
+    feedback(`✓ csrf-tampered: "${tamperedKey}" rejected, firstname still "${baseline}"`);
+  } finally {
+    if (baseline !== null) await db.setUserFirstname(creds.username, baseline);
+  }
+});
+
+test(86, "vitality", async ({ customer, customerPage, tenant, db, feedback }) => {
+  const creds       = requireTestCustomer(tenant);
+  const baseline    = await db.userFirstname(creds.username);
+  const probe       = `ash-ar-csrf-${Date.now()}`;
+  // "Your session has expired" (the key the server renders is `form_token_invalid`).
+  const AR_EXPIRED  = 'انتهت صلاحية الجلسة';
+
+  try {
+    await customer.login(creds);
+    // Flip the session language — the server stores `_SHOP_LANG` on $_SESSION so
+    // subsequent requests (and the warning con()-lookup) resolve against web_ar.
+    await customerPage.goto('/?setlang=ar');
+
+    const edit = customer.pages.editProfile;
+    await edit.open();
+    const formData = await edit.readFormData();
+    const tokenKey = await edit.readTokenKey();
+    if (tokenKey) delete formData[tokenKey];
+    formData.user_firstname = probe;
+
+    const res          = await customerPage.request.post('/', { form: formData });
+    const hasAr        = (await res.text()).includes(AR_EXPIRED);
+
+    expect(await db.userFirstname(creds.username)).toBe(baseline);
+    expect(hasAr, `response body did not contain the Arabic warning "${AR_EXPIRED}"`).toBe(true);
+
+    feedback(`✓ arabic-csrf: tokenless POST surfaced "${AR_EXPIRED}" and left firstname at "${baseline}"`);
+  } finally {
+    if (baseline !== null) await db.setUserFirstname(creds.username, baseline);
+  }
+});
+
 test(26, "vitality", async ({ customer, resolver, tenant, feedback }) => {
   const creds    = requireTestCustomer(tenant);
   const event    = await resolver.event(events.normal);
